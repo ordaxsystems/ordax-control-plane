@@ -1,28 +1,27 @@
-name: Deploy Cloudflare v3 Control Plane
+﻿name: Deploy ORDAX Control Plane
 
 on:
   workflow_dispatch:
-  workflow_run:
-    workflows: ["Bridge CI"]
-    types: [completed]
 
 permissions:
   contents: read
 
 concurrency:
-  group: cloudflare-v3-production
+  group: ordax-control-plane-production
   cancel-in-progress: false
 
 jobs:
   deploy:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     environment: cloudflare-v3
     steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Validate required secrets
         shell: bash
         env:
@@ -30,24 +29,13 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           ORDAX_OPERATOR_TOKEN: ${{ secrets.ORDAX_OPERATOR_TOKEN }}
         run: |
-          test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing CLOUDFLARE_API_TOKEN"; exit 1; }
-          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing CLOUDFLARE_ACCOUNT_ID"; exit 1; }
-          test -n "$ORDAX_OPERATOR_TOKEN" || { echo "Missing ORDAX_OPERATOR_TOKEN"; exit 1; }
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$ORDAX_OPERATOR_TOKEN"
 
-      - name: Checkout verified main revision
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || 'main' }}
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-          cache: "pip"
-          cache-dependency-path: "pyproject.toml"
-
-      - name: Install Device Agent package
-        run: python -m pip install --disable-pip-version-check -e .
+      - name: Install E2E Runtime client at pinned source
+        run: |
+          python -m pip install --disable-pip-version-check "git+https://github.com/washingtonmsdj/ordax-runtime.git@43c7b2c3c8e13bd759b67e040bb165fafb059a36"
 
       - name: Provision and deploy
         id: deploy
@@ -66,38 +54,20 @@ jobs:
         env:
           CONTROL_PLANE_URL: ${{ steps.deploy.outputs.control_plane_url }}
         run: |
-          test -n "$CONTROL_PLANE_URL" || { echo "Deploy did not expose control-plane URL"; exit 1; }
+          test -n "$CONTROL_PLANE_URL"
           for attempt in $(seq 1 60); do
             if health="$(curl --fail --silent --show-error "$CONTROL_PLANE_URL/health")"; then
-              if python -c 'import json,sys; data=json.load(sys.stdin); raise SystemExit(0 if data.get("service") == "ordax-control-plane-v3" and data.get("product_auth_configured") is True else 1)' <<<"$health"; then
-                echo "Remote health + Product auth OK: $CONTROL_PLANE_URL"
+              if python -c 'import json,sys; d=json.load(sys.stdin); raise SystemExit(0 if d.get("service")=="ordax-control-plane-v3" and d.get("product_auth_configured") is True else 1)' <<<"$health"; then
                 exit 0
               fi
             fi
             sleep 2
           done
-          echo "Remote health/Product auth did not become ready: $CONTROL_PLANE_URL"
           exit 1
 
-      - name: Verify remote Cloudflare v3 end to end
+      - name: Verify remote Control Plane end to end
         shell: bash
         env:
           CONTROL_PLANE_URL: ${{ steps.deploy.outputs.control_plane_url }}
           ORDAX_OPERATOR_TOKEN: ${{ secrets.ORDAX_OPERATOR_TOKEN }}
-        run: |
-          python scripts/verify_cloudflare_v3.py \
-            --base-url "$CONTROL_PLANE_URL" \
-            --operator-token "$ORDAX_OPERATOR_TOKEN"
-
-      - name: Record verified endpoint
-        shell: bash
-        env:
-          CONTROL_PLANE_URL: ${{ steps.deploy.outputs.control_plane_url }}
-        run: |
-          {
-            echo "## Cloudflare v3 verified"
-            echo
-            echo "Control plane: `$CONTROL_PLANE_URL`"
-            echo
-            echo "Health, Product JWT/JWKS readiness, WebSocket job delivery, lease, D1 persistence and R2 round-trip passed."
-          } >> "$GITHUB_STEP_SUMMARY"
+        run: python scripts/verify_cloudflare_v3.py --base-url "$CONTROL_PLANE_URL" --operator-token "$ORDAX_OPERATOR_TOKEN"
