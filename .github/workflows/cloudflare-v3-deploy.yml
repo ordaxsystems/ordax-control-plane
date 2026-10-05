@@ -35,7 +35,7 @@ jobs:
 
       - name: Install E2E Runtime client at pinned source
         run: |
-          python -m pip install --disable-pip-version-check "git+https://github.com/washingtonmsdj/ordax-runtime.git@43c7b2c3c8e13bd759b67e040bb165fafb059a36"
+          python -m pip install --disable-pip-version-check "git+https://github.com/washingtonmsdj/ordax-runtime.git@903dbbbe8b4d51fb352d8d2f59d0a0ff32688d47"
 
       - name: Provision and deploy
         id: deploy
