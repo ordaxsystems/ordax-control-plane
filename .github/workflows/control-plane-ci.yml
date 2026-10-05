@@ -33,7 +33,7 @@ jobs:
       - name: Run Control Plane contract tests
         run: |
           node --test control-plane/tests/product_mcp_results.test.mts
-          python -m unittest tests.test_product_action_scope_contract tests.test_cloudflare_device_scope_wiring tests.test_owner_device_computer_grants_contract
+          python -m unittest tests.test_product_action_scope_contract tests.test_cloudflare_device_scope_wiring tests.test_owner_device_computer_grants_contract tests.test_openai_plugin_annotation_evidence tests.test_openai_review_grant_workflow
 
       - name: Verify canonical MCP surface revision exists
         run: |

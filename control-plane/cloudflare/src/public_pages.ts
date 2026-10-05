@@ -3,8 +3,8 @@ export interface PublicPagesEnv {
 }
 
 const PRODUCT_NAME = "ORDAX";
-const REPOSITORY_URL = "https://github.com/washingtonmsdj/mcp-blender";
-const SUPPORT_URL = "https://github.com/washingtonmsdj/mcp-blender/issues";
+const REPOSITORY_URL = "https://github.com/washingtonmsdj/ordax-control-plane";
+const SUPPORT_URL = "https://github.com/washingtonmsdj/ordax-control-plane/issues";
 
 function html(title: string, body: string): Response {
   const document = `<!doctype html>
