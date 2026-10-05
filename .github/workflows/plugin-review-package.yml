@@ -1,0 +1,104 @@
+name: ORDAX for ChatGPT Review Package
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "plugins/ordax-chatgpt/**"
+      - "plugins/ordax-studio/**"
+      - "scripts/build_ordax_plugin.py"
+      - "tests/test_ordax_studio_plugin_package.py"
+      - ".github/workflows/plugin-review-package.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "plugins/ordax-chatgpt/**"
+      - "plugins/ordax-studio/**"
+      - "scripts/build_ordax_plugin.py"
+      - "tests/test_ordax_studio_plugin_package.py"
+      - ".github/workflows/plugin-review-package.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ordax-chatgpt-review-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Validate ChatGPT connector package contract
+        run: python -m unittest tests.test_ordax_studio_plugin_package
+
+      - name: Build deterministic review package
+        run: |
+          rm -rf dist/plugins
+          python scripts/build_ordax_plugin.py --output-dir dist/plugins
+          zip_path="$(find dist/plugins -maxdepth 1 -type f -name 'ordax-chatgpt-plugin-*.zip' -print)"
+          count="$(printf '%s\n' "$zip_path" | sed '/^$/d' | wc -l)"
+          test "$count" -eq 1 || { echo "Expected exactly one ORDAX for ChatGPT connector ZIP, got $count"; exit 1; }
+          test -f "${zip_path}.sha256"
+          (
+            cd dist/plugins
+            sha256sum --check "$(basename "$zip_path").sha256"
+          )
+          python - "$zip_path" <<'PY'
+          from __future__ import annotations
+          import json
+          import sys
+          import zipfile
+          from pathlib import Path
+
+          archive = Path(sys.argv[1])
+          with zipfile.ZipFile(archive) as zf:
+              names = sorted(zf.namelist())
+              expected = ["assets/ordax.svg", "mcp.json", "plugin.json"]
+              if names != expected:
+                  raise SystemExit(f"unexpected package contents: {names}")
+              plugin = json.loads(zf.read("plugin.json"))
+              mcp = json.loads(zf.read("mcp.json"))
+          if plugin.get("name") != "ordax-chatgpt":
+              raise SystemExit("ChatGPT connector name mismatch")
+          if plugin.get("version") != "0.4.2":
+              raise SystemExit("connector version mismatch")
+          display_name = (
+              plugin.get("extensions", {})
+              .get("com.openai", {})
+              .get("interface", {})
+              .get("displayName")
+          )
+          if display_name != "ORDAX for ChatGPT":
+              raise SystemExit("ChatGPT connector display name mismatch")
+          servers = mcp.get("mcpServers")
+          ordax = servers.get("ordax") if isinstance(servers, dict) else None
+          url = ordax.get("url") if isinstance(ordax, dict) else None
+          if not isinstance(url, str) or not url.startswith("https://"):
+              raise SystemExit("remote MCP URL must use HTTPS")
+          print(f"Review package OK: {archive}")
+          PY
+
+      - name: Reject legacy connector package names
+        run: |
+          ! find dist/plugins -maxdepth 1 -type f \( -name 'ordax-dev-plugin-*' -o -name 'ordax-studio-plugin-*' \) | grep -q .
+
+      - name: Upload canonical review package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ordax-chatgpt-plugin-review-package
+          path: |
+            dist/plugins/ordax-chatgpt-plugin-*.zip
+            dist/plugins/ordax-chatgpt-plugin-*.zip.sha256
+          if-no-files-found: error
+          retention-days: 30
