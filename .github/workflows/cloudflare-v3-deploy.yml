@@ -1,4 +1,4 @@
-﻿name: Deploy ORDAX Control Plane
+name: Deploy ORDAX Control Plane
 
 on:
   workflow_dispatch:

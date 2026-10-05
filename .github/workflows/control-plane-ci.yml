@@ -1,4 +1,4 @@
-﻿name: ORDAX Control Plane CI
+name: ORDAX Control Plane CI
 
 on:
   pull_request:
