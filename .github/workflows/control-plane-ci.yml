@@ -27,6 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Run Control Plane contract tests
+        run: node --test control-plane/tests/product_mcp_results.test.mts
+
       - name: Verify canonical MCP surface revision exists
         run: |
           grep -q 'MCP_TOOL_SURFACE_REVISION = "2026-10-05.1"' control-plane/cloudflare/src/mcp_http.ts
