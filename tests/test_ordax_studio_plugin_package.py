@@ -16,6 +16,7 @@ class OrdaxChatGptConnectorPackageTests(unittest.TestCase):
     def test_portable_plugin_manifest_is_valid(self):
         manifest = json.loads((PLUGIN_ROOT / "plugin.json").read_text(encoding="utf-8-sig"))
         self.assertEqual(manifest["name"], "ordax-chatgpt")
+        self.assertEqual(manifest["repository"], "https://github.com/washingtonmsdj/ordax-control-plane")
         self.assertEqual(
             manifest["extensions"]["com.openai"]["interface"]["displayName"],
             "ORDAX for ChatGPT",
