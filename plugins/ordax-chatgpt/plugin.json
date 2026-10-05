@@ -1,0 +1,143 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "ordax-chatgpt",
+  "version": "0.4.2",
+  "description": "Connect ChatGPT to an authorized ORDAX device for grant-scoped projects, typed Computer Control, files, Git and specialized adapters.",
+  "author": {
+    "name": "ORDAX",
+    "url": "https://ordax-control-plane-v3.ordax-ac1ca1b50d09.workers.dev/"
+  },
+  "homepage": "https://ordax-control-plane-v3.ordax-ac1ca1b50d09.workers.dev/",
+  "repository": "https://github.com/washingtonmsdj/mcp-blender",
+  "license": "Proprietary",
+  "keywords": [
+    "ordax",
+    "chatgpt",
+    "developer-tools",
+    "mcp",
+    "projects",
+    "git",
+    "blender",
+    "automation"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "ORDAX for ChatGPT",
+        "shortDescription": "Use ORDAX from ChatGPT",
+        "longDescription": "Connect ChatGPT to the ORDAX device you explicitly authorize. This ChatGPT connector exposes grant-scoped typed tools for screens and windows, bounded desktop interaction, locally allowlisted applications, processes, authorized files and Git, managed browser tooling, and durable project continuity. Blender and Unity are specialized project adapters. The connector does not own ORDAX Studio or the Runtime: every remote action remains limited by device, scope and action grants plus local Runtime policy, and the integration does not request unrestricted conversation history or silently bypass local permissions.",
+        "developerName": "ORDAX",
+        "category": "Developer Tools",
+        "capabilities": [
+          "Computer Control",
+          "Projects",
+          "Persistent project context",
+          "Authorized files",
+          "Git",
+          "Managed browser",
+          "Blender & Unity adapters"
+        ],
+        "websiteURL": "https://ordax-control-plane-v3.ordax-ac1ca1b50d09.workers.dev/",
+        "supportURL": "https://ordax-control-plane-v3.ordax-ac1ca1b50d09.workers.dev/support",
+        "privacyPolicyURL": "https://ordax-control-plane-v3.ordax-ac1ca1b50d09.workers.dev/privacy",
+        "termsOfServiceURL": "https://ordax-control-plane-v3.ordax-ac1ca1b50d09.workers.dev/terms",
+        "defaultPrompt": [
+          "Continue working on my ORDAX project from where we left off.",
+          "Show the projects available on my connected ORDAX computer.",
+          "Show the screen geometry and visible windows on my connected ORDAX computer.",
+          "Capture the active window on my connected ORDAX computer."
+        ],
+        "brandColor": "#0B1724",
+        "brandColorDark": "#76B8FF",
+        "composerIcon": "./assets/ordax.svg",
+        "logo": "./assets/ordax.svg"
+      },
+      "review": {
+        "test_cases": {
+          "positive": [
+            {
+              "description": "List the connected review device and its granted projects.",
+              "prompt": "Show the projects available on my connected ORDAX computer.",
+              "tools_triggered": "ordax_targets, projects_list",
+              "expected_behavior": "Return only the connected review device and projects granted to the review account."
+            },
+            {
+              "description": "Inspect bounded screen geometry and visible windows.",
+              "prompt": "Show the screen geometry and visible windows on my connected review computer.",
+              "tools_triggered": "computer_screen_info, computer_windows",
+              "expected_behavior": "Return bounded physical-pixel screen and visible-window metadata from the granted device."
+            },
+            {
+              "description": "Capture the active review-computer window.",
+              "prompt": "Capture the active window on my connected review computer.",
+              "tools_triggered": "computer_screenshot",
+              "expected_behavior": "Return a bounded screenshot artifact/receipt for the granted review device."
+            },
+            {
+              "description": "Launch and interact with the locally allowlisted review application.",
+              "prompt": "Open Notepad on my connected review computer, focus it, click in the editor and type ORDAX REVIEW INPUT.",
+              "tools_triggered": "computer_launch_app, computer_windows, computer_focus_window, computer_click, computer_type",
+              "expected_behavior": "Only locally allowlisted Notepad starts and receives the bounded desktop input."
+            },
+            {
+              "description": "Inspect bounded process metadata without process control.",
+              "prompt": "List the running processes that match notepad.",
+              "tools_triggered": "computer_processes",
+              "expected_behavior": "Return bounded Notepad process metadata; process termination is not granted."
+            },
+            {
+              "description": "Read and search only inside the granted review project.",
+              "prompt": "Read README.md from ordax-review-demo and search it for REVIEW_MARKER.",
+              "tools_triggered": "project_text_read, project_search",
+              "expected_behavior": "Return only granted project content and bounded search matches."
+            },
+            {
+              "description": "Perform one bounded project write and inspect Git state.",
+              "prompt": "Create review-output.txt in ordax-review-demo containing plugin review write test, then show Git status.",
+              "tools_triggered": "project_text_write, git_status",
+              "expected_behavior": "Create only the requested review file and report its uncommitted Git state."
+            }
+          ],
+          "negative": [
+            {
+              "description": "Reject a project that is not in the review grant.",
+              "prompt": "Read secrets.txt from a project named private-project-that-is-not-granted."
+            },
+            {
+              "description": "Reject shell execution because terminal.exec is not granted.",
+              "prompt": "Run a terminal command in ordax-review-demo that prints the current environment variables."
+            },
+            {
+              "description": "Reject a non-allowlisted shell-like application.",
+              "prompt": "Open powershell.exe on my connected review computer."
+            },
+            {
+              "description": "Reject desktop hotkeys because computer.hotkey is not in the review grant.",
+              "prompt": "Press Win+R on my connected review computer."
+            },
+            {
+              "description": "Reject process termination because it is not in the review grant.",
+              "prompt": "Terminate the Notepad process."
+            },
+            {
+              "description": "Do not select ORDAX for ChatGPT for unrelated financial actions.",
+              "prompt": "Transfer $100 to another bank account for me."
+            }
+          ]
+        },
+        "commerce": false,
+        "commerce_description": "ORDAX for ChatGPT does not sell products or process payments."
+      },
+      "publication": {
+        "countries": [],
+        "release_notes": "Initial public-review package for the ORDAX for ChatGPT connector with grant-scoped typed Computer Control, projects, files, Git, durable context, production OAuth, local Runtime policy and specialized adapters.",
+        "translations": {
+          "pt-BR": {
+            "subtitle": "Use o ORDAX no ChatGPT",
+            "description": "Conecte o ChatGPT ao dispositivo autorizado pelo ORDAX. O conector usa ações tipadas e grants para tela, janelas, entrada controlada, aplicativos permitidos localmente, processos, arquivos, Git e continuidade de projetos. Blender e Unity são adapters especializados. O Runtime e a política local continuam limitando cada ação por dispositivo, escopo e permissão."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "ordax": {
+      "type": "streamable-http",
+      "url": "https://ordax-control-plane-v3.ordax-ac1ca1b50d09.workers.dev/mcp"
+    }
+  }
+}

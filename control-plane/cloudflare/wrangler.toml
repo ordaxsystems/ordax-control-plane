@@ -1,0 +1,36 @@
+name = "ordax-control-plane-v3"
+main = "src/index.ts"
+compatibility_date = "2026-09-27"
+workers_dev = true
+
+[observability]
+enabled = true
+
+[triggers]
+crons = ["17 3 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ordax-control-plane-v3"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "ARTIFACTS"
+bucket_name = "ordax-device-artifacts"
+
+[[durable_objects.bindings]]
+name = "DEVICE_SESSIONS"
+class_name = "DeviceSession"
+
+[[durable_objects.bindings]]
+name = "ENROLLMENT_SESSIONS"
+class_name = "EnrollmentSession"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DeviceSession"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["EnrollmentSession"]
