@@ -23,6 +23,24 @@ jobs:
           python scripts/build_ordax_plugin.py --output-dir dist/plugins
           test "$(find dist/plugins -maxdepth 1 -name 'ordax-chatgpt-plugin-*.zip' | wc -l)" -eq 1
 
+  worker-bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production Worker bundle without deployment authority
+        run: |
+          npx --yes wrangler@4.141.0 deploy --dry-run --config control-plane/cloudflare/wrangler.toml --outdir dist/control-plane-worker
+          test -f dist/control-plane-worker/index.js
+          grep -q 'app_intelligence_catalog' dist/control-plane-worker/index.js
+          grep -q 'app_intelligence_detail' dist/control-plane-worker/index.js
+      - name: Publish exact tested Worker bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: ordax-control-plane-worker-${{ github.sha }}
+          path: dist/control-plane-worker/
+          if-no-files-found: error
+          retention-days: 3
+
   control-plane-source:
     runs-on: ubuntu-latest
     steps:
