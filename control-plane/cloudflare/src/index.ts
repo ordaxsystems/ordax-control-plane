@@ -13,6 +13,11 @@ import {
   listOwnerDeviceComputerGrants,
   revokeOwnerDeviceComputerGrant,
 } from "./product_device_grants";
+import {
+  createOwnerProjectGrant,
+  listOwnerProjectGrants,
+  revokeOwnerProjectGrant,
+} from "./product_project_grants";
 import { handleOrdaxMcp } from "./mcp_http";
 import { scopeProductResult } from "./product_results";
 import { oauthConsentResponse } from "./oauth_consent";
@@ -2300,6 +2305,21 @@ export default {
       && parts.length === 4
     ) {
       return revokeOwnerDeviceComputerGrant(request, env, parts[3]);
+    }
+    if (request.method === "POST" && url.pathname === "/v3/product/project-capability-grants") {
+      return createOwnerProjectGrant(request, env);
+    }
+    if (request.method === "GET" && url.pathname === "/v3/product/project-capability-grants") {
+      return listOwnerProjectGrants(request, env);
+    }
+    if (
+      request.method === "DELETE"
+      && parts[0] === "v3"
+      && parts[1] === "product"
+      && parts[2] === "project-capability-grants"
+      && parts.length === 4
+    ) {
+      return revokeOwnerProjectGrant(request, env, parts[3]);
     }
     if (request.method === "POST" && url.pathname === "/v3/product/device-links") {
       return claimProductDevicePairing(request, env);
