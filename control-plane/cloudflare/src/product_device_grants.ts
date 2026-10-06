@@ -2,7 +2,7 @@ import {
   authenticateProductRequest,
   type ProductAuthEnv,
 } from "./product_auth";
-import { DEVICE_SCOPED_ACTIONS } from "./product_action_scope";
+import { COMPUTER_DEVICE_ACTIONS } from "./product_action_scope";
 
 type JsonObject = Record<string, unknown>;
 
@@ -93,14 +93,14 @@ function parseExpiry(value: unknown): string | null | undefined {
 }
 
 function stableComputerActions(): string[] {
-  return [...DEVICE_SCOPED_ACTIONS].sort();
+  return [...COMPUTER_DEVICE_ACTIONS].sort();
 }
 
 function actionsForOwnerDeviceMode(mode: string): string[] | null {
   if (mode === FULL_COMPUTER_CONTROL_MODE) return stableComputerActions();
   const profile = OWNER_DEVICE_COMPUTER_GRANT_PROFILES[mode];
   if (!profile || profile.length === 0) return null;
-  if (profile.some((action) => !DEVICE_SCOPED_ACTIONS.has(action))) return null;
+  if (profile.some((action) => !COMPUTER_DEVICE_ACTIONS.has(action))) return null;
   return [...profile].sort();
 }
 
@@ -186,7 +186,7 @@ function rowIsDeviceComputerGrant(row: ProductGrantRow): boolean {
     Array.isArray(actions)
     && actions.length > 0
     && actions.every(
-      (action) => typeof action === "string" && DEVICE_SCOPED_ACTIONS.has(action),
+      (action) => typeof action === "string" && COMPUTER_DEVICE_ACTIONS.has(action),
     )
     && Array.isArray(projects)
     && projects.length === 0
