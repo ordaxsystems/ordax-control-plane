@@ -6,6 +6,7 @@ import {
 } from "./product_auth";
 import {
   DEVICE_SCOPED_ACTIONS,
+  PROJECT_BROWSER_ACTIONS,
   projectBindingMatchesScope,
 } from "./product_action_scope";
 import {
@@ -13,6 +14,11 @@ import {
   listOwnerDeviceComputerGrants,
   revokeOwnerDeviceComputerGrant,
 } from "./product_device_grants";
+import {
+  createOwnerProjectGrant,
+  listOwnerProjectGrants,
+  revokeOwnerProjectGrant,
+} from "./product_project_grants";
 import { handleOrdaxMcp } from "./mcp_http";
 import { scopeProductResult } from "./product_results";
 import { oauthConsentResponse } from "./oauth_consent";
@@ -173,15 +179,7 @@ const PRODUCT_PROJECT_ACTIONS = new Set([
   "process.start",
   "process.write_stdin",
   "process.stop",
-  "browser.status",
-  "browser.list",
-  "browser.snapshot",
-  "browser.screenshot",
-  "browser.start",
-  "browser.navigate",
-  "browser.click",
-  "browser.type",
-  "browser.stop",
+  ...PROJECT_BROWSER_ACTIONS,
   "project.text_write",
   "project.text_patch",
   "blender.live_status",
@@ -2300,6 +2298,21 @@ export default {
       && parts.length === 4
     ) {
       return revokeOwnerDeviceComputerGrant(request, env, parts[3]);
+    }
+    if (request.method === "POST" && url.pathname === "/v3/product/project-capability-grants") {
+      return createOwnerProjectGrant(request, env);
+    }
+    if (request.method === "GET" && url.pathname === "/v3/product/project-capability-grants") {
+      return listOwnerProjectGrants(request, env);
+    }
+    if (
+      request.method === "DELETE"
+      && parts[0] === "v3"
+      && parts[1] === "product"
+      && parts[2] === "project-capability-grants"
+      && parts.length === 4
+    ) {
+      return revokeOwnerProjectGrant(request, env, parts[3]);
     }
     if (request.method === "POST" && url.pathname === "/v3/product/device-links") {
       return claimProductDevicePairing(request, env);

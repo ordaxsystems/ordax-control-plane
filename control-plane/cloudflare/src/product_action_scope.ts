@@ -10,6 +10,18 @@ export type ProductActionScope = "device" | "project";
  * Keep this list explicit: adding a new remote Computer capability requires a
  * reviewed scope decision instead of inheriting authority from a prefix match.
  */
+export const PROJECT_BROWSER_ACTIONS = new Set<string>([
+  "browser.click",
+  "browser.list",
+  "browser.navigate",
+  "browser.screenshot",
+  "browser.snapshot",
+  "browser.start",
+  "browser.status",
+  "browser.stop",
+  "browser.type",
+]);
+
 export const DEVICE_SCOPED_ACTIONS = new Set<string>([
   "computer.access_status",
   "computer.active_window",
