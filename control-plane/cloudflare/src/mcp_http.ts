@@ -502,7 +502,15 @@ function specFor(name: string): ToolSpec | undefined {
   return TOOLS.find((tool) => tool.name === name);
 }
 
-const OWNER_GRANT_PROFILE_BY_ACTION = new Map<string, string>([
+type OwnerGrantHint = {
+  profile: string;
+  surface: string;
+};
+
+const COMPUTER_GRANT_SURFACE = "ORDAX Studio > Acesso ao computador";
+const BROWSER_GRANT_SURFACE = "ORDAX Studio > Navegador gerenciado";
+
+const OWNER_GRANT_HINT_BY_ACTION = new Map<string, OwnerGrantHint>([
   ...[
     "computer.active_window",
     "computer.click",
@@ -517,7 +525,7 @@ const OWNER_GRANT_PROFILE_BY_ACTION = new Map<string, string>([
     "computer.scroll",
     "computer.type",
     "computer.windows",
-  ].map((action) => [action, "interactive-computer-control"] as const),
+  ].map((action) => [action, { profile: "interactive-computer-control", surface: COMPUTER_GRANT_SURFACE }] as const),
   ...[
     "computer.directory_create",
     "computer.directory_list",
@@ -528,20 +536,31 @@ const OWNER_GRANT_PROFILE_BY_ACTION = new Map<string, string>([
     "computer.text_patch",
     "computer.text_read",
     "computer.text_write",
-  ].map((action) => [action, "computer-filesystem"] as const),
+  ].map((action) => [action, { profile: "computer-filesystem", surface: COMPUTER_GRANT_SURFACE }] as const),
   ...[
     "computer.clipboard_read",
     "computer.clipboard_write",
-  ].map((action) => [action, "computer-clipboard"] as const),
-  ["computer.terminate_process", "computer-process-control"],
+  ].map((action) => [action, { profile: "computer-clipboard", surface: COMPUTER_GRANT_SURFACE }] as const),
+  ["computer.terminate_process", { profile: "computer-process-control", surface: COMPUTER_GRANT_SURFACE }],
+  ...[
+    "browser.click",
+    "browser.list",
+    "browser.navigate",
+    "browser.screenshot",
+    "browser.snapshot",
+    "browser.start",
+    "browser.status",
+    "browser.stop",
+    "browser.type",
+  ].map((action) => [action, { profile: "project-browser-automation", surface: BROWSER_GRANT_SURFACE }] as const),
 ]);
 
 function authorizationHintForAction(action: string): JsonObject | null {
-  const profile = OWNER_GRANT_PROFILE_BY_ACTION.get(action);
-  if (!profile) return null;
+  const hint = OWNER_GRANT_HINT_BY_ACTION.get(action);
+  if (!hint) return null;
   return {
-    required_owner_profile: profile,
-    authorization_surface: "ORDAX Studio > Acesso ao computador",
+    required_owner_profile: hint.profile,
+    authorization_surface: hint.surface,
     authorization_required: true,
   };
 }
