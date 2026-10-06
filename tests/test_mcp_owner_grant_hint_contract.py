@@ -24,6 +24,7 @@ class McpOwnerGrantHintContractTests(unittest.TestCase):
             "computer-clipboard",
             "computer-process-control",
             "project-browser-automation",
+            "app-intelligence-read",
         ):
             self.assertIn(mode, self.source)
         self.assertNotIn('required_owner_profile: "full-computer-control"', self.source)
@@ -34,6 +35,15 @@ class McpOwnerGrantHintContractTests(unittest.TestCase):
             self.assertIn(f'"{action}"', self.source)
         for action in ("computer.drag", "computer.hotkey"):
             self.assertIn(f'"{action}"', self.source)
+
+    def test_app_intelligence_actions_use_read_profile(self) -> None:
+        for action in ("intelligence.app_catalog", "intelligence.app_detail"):
+            self.assertIn(f'"{action}"', self.source)
+        self.assertIn('profile: "app-intelligence-read"', self.source)
+        self.assertIn(
+            'APP_INTELLIGENCE_GRANT_SURFACE = "ORDAX Studio > Inteligência dos apps"',
+            self.source,
+        )
 
     def test_browser_actions_use_browser_profile_without_computer_authority(self) -> None:
         for action in (
