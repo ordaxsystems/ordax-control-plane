@@ -6,6 +6,7 @@ import {
 } from "./product_auth";
 import {
   DEVICE_SCOPED_ACTIONS,
+  PROJECT_BROWSER_ACTIONS,
   projectBindingMatchesScope,
 } from "./product_action_scope";
 import {
@@ -178,15 +179,7 @@ const PRODUCT_PROJECT_ACTIONS = new Set([
   "process.start",
   "process.write_stdin",
   "process.stop",
-  "browser.status",
-  "browser.list",
-  "browser.snapshot",
-  "browser.screenshot",
-  "browser.start",
-  "browser.navigate",
-  "browser.click",
-  "browser.type",
-  "browser.stop",
+  ...PROJECT_BROWSER_ACTIONS,
   "project.text_write",
   "project.text_patch",
   "blender.live_status",
