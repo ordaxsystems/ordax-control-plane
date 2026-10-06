@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ordax-chatgpt",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Connect ChatGPT to an authorized ORDAX device for grant-scoped projects, typed Computer Control, files, Git and specialized adapters.",
   "author": {
     "name": "ORDAX",
@@ -25,11 +25,12 @@
       "interface": {
         "displayName": "ORDAX for ChatGPT",
         "shortDescription": "Use ORDAX from ChatGPT",
-        "longDescription": "Connect ChatGPT to the ORDAX device you explicitly authorize. This ChatGPT connector exposes grant-scoped typed tools for screens and windows, bounded desktop interaction, locally allowlisted applications, processes, authorized files and Git, managed browser tooling, and durable project continuity. Blender and Unity are specialized project adapters. The connector does not own ORDAX Studio or the Runtime: every remote action remains limited by device, scope and action grants plus local Runtime policy, and the integration does not request unrestricted conversation history or silently bypass local permissions.",
+        "longDescription": "Connect ChatGPT to the ORDAX device you explicitly authorize. This ChatGPT connector exposes grant-scoped typed tools for screens and windows, desktop interaction, applications, processes, computer files and Git, managed browser tooling, and durable project continuity. Owners may optionally authorize the full Computer Control profile from ORDAX Studio; that profile still requires Full Access to be enabled locally on the device and remains bounded by Windows/UAC. Blender and Unity are specialized project adapters. The connector does not own ORDAX Studio or the Runtime, cannot mint its own grants, and cannot silently bypass local permissions.",
         "developerName": "ORDAX",
         "category": "Developer Tools",
         "capabilities": [
           "Computer Control",
+          "Owner-approved Full Computer Control",
           "Projects",
           "Persistent project context",
           "Authorized files",
@@ -130,11 +131,11 @@
       },
       "publication": {
         "countries": [],
-        "release_notes": "Initial public-review package for the ORDAX for ChatGPT connector with grant-scoped typed Computer Control, projects, files, Git, durable context, production OAuth, local Runtime policy and specialized adapters.",
+        "release_notes": "Adds owner-approved Full Computer Control guidance while preserving separate local Runtime consent, Windows/UAC boundaries, and granular review grants.",
         "translations": {
           "pt-BR": {
             "subtitle": "Use o ORDAX no ChatGPT",
-            "description": "Conecte o ChatGPT ao dispositivo autorizado pelo ORDAX. O conector usa ações tipadas e grants para tela, janelas, entrada controlada, aplicativos permitidos localmente, processos, arquivos, Git e continuidade de projetos. Blender e Unity são adapters especializados. O Runtime e a política local continuam limitando cada ação por dispositivo, escopo e permissão."
+            "description": "Conecte o ChatGPT ao dispositivo autorizado pelo ORDAX. O conector usa ações tipadas e grants para tela, janelas, entrada, aplicativos, processos, arquivos, Git e continuidade. O dono pode autorizar opcionalmente o perfil completo de Computer Control no ORDAX Studio; ele só fica plenamente efetivo com Full Access local também ativo e continua limitado pelo Windows/UAC. O conector não pode criar seus próprios grants nem contornar permissões locais."
           }
         }
       }
