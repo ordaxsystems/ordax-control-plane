@@ -29,9 +29,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build production Worker bundle without deployment authority
         run: |
-          npx --yes wrangler@4.141.0 deploy --dry-run --config control-plane/cloudflare/wrangler.toml --outdir dist/control-plane-worker
-          find dist/control-plane-worker -maxdepth 2 -type f -print
-          bundle="$(find dist/control-plane-worker -maxdepth 2 -type f -print -quit)"
+          outdir="$RUNNER_TEMP/ordax-control-plane-worker"
+          rm -rf "$outdir"
+          npx --yes wrangler@4.141.0 deploy --dry-run --cwd control-plane/cloudflare --outdir "$outdir"
+          find "$outdir" -maxdepth 2 -type f -print
+          bundle="$(find "$outdir" -maxdepth 2 -type f ! -name 'README.md' -print -quit)"
           test -n "$bundle"
           grep -q 'app_intelligence_catalog' "$bundle"
           grep -q 'app_intelligence_detail' "$bundle"
@@ -40,7 +42,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ordax-control-plane-worker-${{ github.sha }}
-          path: dist/control-plane-worker/
+          path: ${{ runner.temp }}/ordax-control-plane-worker/
           if-no-files-found: error
           retention-days: 3
 
