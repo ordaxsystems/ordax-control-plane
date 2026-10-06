@@ -30,7 +30,8 @@ jobs:
       - name: Build production Worker bundle without deployment authority
         run: |
           npx --yes wrangler@4.141.0 deploy --dry-run --config control-plane/cloudflare/wrangler.toml --outdir dist/control-plane-worker
-          bundle="$(find dist/control-plane-worker -maxdepth 2 -type f \\( -name '*.js' -o -name '*.mjs' \\) -print -quit)"
+          find dist/control-plane-worker -maxdepth 2 -type f -print
+          bundle="$(find dist/control-plane-worker -maxdepth 2 -type f -print -quit)"
           test -n "$bundle"
           grep -q 'app_intelligence_catalog' "$bundle"
           grep -q 'app_intelligence_detail' "$bundle"
