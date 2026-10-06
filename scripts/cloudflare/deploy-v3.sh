@@ -18,7 +18,6 @@ cleanup() {
 trap cleanup EXIT
 
 : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required}"
-: "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID is required}"
 : "${ORDAX_OPERATOR_TOKEN:?ORDAX_OPERATOR_TOKEN is required}"
 : "${PRODUCT_AUTH_ISSUER:?PRODUCT_AUTH_ISSUER is required}"
 : "${PRODUCT_AUTH_AUDIENCE:?PRODUCT_AUTH_AUDIENCE is required}"
@@ -39,6 +38,24 @@ cloudflare_api() {
     -H "Content-Type: application/json" \
     "$@"
 }
+
+if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
+  echo "Resolving Cloudflare account from API token"
+  accounts_json="$(cloudflare_api "https://api.cloudflare.com/client/v4/accounts?per_page=50")"
+  CLOUDFLARE_ACCOUNT_ID="$(printf '%s' "$accounts_json" | python -c '
+import json,sys
+data=json.load(sys.stdin)
+rows=data.get("result") or []
+ids=[str(row.get("id") or "").strip() for row in rows if str(row.get("id") or "").strip()]
+if len(ids) != 1:
+    raise SystemExit(2)
+print(ids[0])
+')"
+  if [[ ! "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-fA-F]{32}$ ]]; then
+    echo "Cloudflare account could not be resolved unambiguously; set CLOUDFLARE_ACCOUNT_ID explicitly" >&2
+    exit 2
+  fi
+fi
 
 echo "Resolving workers.dev account subdomain"
 subdomain_response=""
