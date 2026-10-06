@@ -30,7 +30,7 @@ class OwnerDeviceComputerGrantContractTests(unittest.TestCase):
         self.assertIn('CLIPBOARD_COMPUTER_CONTROL_MODE = "computer-clipboard"', self.handler)
         self.assertIn('PROCESS_COMPUTER_CONTROL_MODE = "computer-process-control"', self.handler)
         self.assertIn("actionsForOwnerDeviceMode(mode)", self.handler)
-        self.assertIn("[...DEVICE_SCOPED_ACTIONS].sort()", self.handler)
+        self.assertIn("[...COMPUTER_DEVICE_ACTIONS].sort()", self.handler)
         self.assertNotIn("body.actions", self.handler)
         self.assertNotIn("body.projects", self.handler)
         self.assertNotIn("body.project", self.handler)
@@ -62,7 +62,7 @@ class OwnerDeviceComputerGrantContractTests(unittest.TestCase):
     def test_revoke_is_subject_scoped_and_only_for_device_computer_grants(self) -> None:
         self.assertIn("g.subject_id = ?2", self.handler)
         self.assertIn("rowIsDeviceComputerGrant(row)", self.handler)
-        self.assertIn("DEVICE_SCOPED_ACTIONS.has(action)", self.handler)
+        self.assertIn("COMPUTER_DEVICE_ACTIONS.has(action)", self.handler)
         self.assertIn("projects.length === 0", self.handler)
 
     def test_owner_grant_handler_is_not_an_mcp_tool(self) -> None:
@@ -76,6 +76,8 @@ class OwnerDeviceComputerGrantContractTests(unittest.TestCase):
         self.assertIn('url.searchParams.get("link_id")', self.handler)
         self.assertIn('return "custom-device-grant";', self.handler)
         self.assertNotIn("listOwnerDeviceComputerGrants", self.mcp)
+        self.assertNotIn("intelligence.app_catalog", self.handler)
+        self.assertNotIn("intelligence.app_detail", self.handler)
 
     def test_create_response_preserves_requested_profile_mode(self) -> None:
         self.assertIn("mode,\n      grant: publicGrant(existing)", self.handler)
