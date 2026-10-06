@@ -71,7 +71,7 @@ jobs:
               mcp = json.loads(zf.read("mcp.json"))
           if plugin.get("name") != "ordax-chatgpt":
               raise SystemExit("ChatGPT connector name mismatch")
-          if plugin.get("version") != "0.4.2":
+          if plugin.get("version") != "0.4.3":
               raise SystemExit("connector version mismatch")
           display_name = (
               plugin.get("extensions", {})
