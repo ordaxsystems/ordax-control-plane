@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: cloudflare-v3
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ac1ca1b50d09c7a4cb81274d2aa1e78f
     steps:
       - uses: actions/checkout@v4
 
@@ -22,49 +24,23 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Validate required secrets
+      - name: Validate deploy credential
         shell: bash
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          ORDAX_OPERATOR_TOKEN: ${{ secrets.ORDAX_OPERATOR_TOKEN }}
-        run: |
-          test -n "$CLOUDFLARE_API_TOKEN"
-          test -n "$ORDAX_OPERATOR_TOKEN"
+        run: test -n "$CLOUDFLARE_API_TOKEN"
 
-      - name: Install E2E Runtime client at pinned source
-        run: |
-          python -m pip install --disable-pip-version-check "git+https://github.com/washingtonmsdj/ordax-runtime.git@41fb39bd799627c4a5c63d2ee93738521529f68c"
-
-      - name: Provision and deploy
+      - name: Deploy existing Worker
         id: deploy
         shell: bash
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          ORDAX_OPERATOR_TOKEN: ${{ secrets.ORDAX_OPERATOR_TOKEN }}
-          PRODUCT_AUTH_ISSUER: https://eobcxuyvhkvdmkbaihwh.supabase.co/auth/v1
-          PRODUCT_AUTH_AUDIENCE: authenticated
-          PRODUCT_AUTH_JWKS_URL: https://eobcxuyvhkvdmkbaihwh.supabase.co/auth/v1/.well-known/jwks.json
-        run: bash scripts/cloudflare/deploy-v3.sh
+        run: bash scripts/cloudflare/deploy-production-v3.sh
 
-      - name: Wait for public health
-        shell: bash
+      - name: Install public smoke dependencies
+        run: python -m pip install --disable-pip-version-check "httpx>=0.26,<1"
+
+      - name: Verify public health and OAuth contract
         env:
           CONTROL_PLANE_URL: ${{ steps.deploy.outputs.control_plane_url }}
-        run: |
-          test -n "$CONTROL_PLANE_URL"
-          for attempt in $(seq 1 60); do
-            if health="$(curl --fail --silent --show-error "$CONTROL_PLANE_URL/health")"; then
-              if python -c 'import json,sys; d=json.load(sys.stdin); raise SystemExit(0 if d.get("service")=="ordax-control-plane-v3" and d.get("product_auth_configured") is True else 1)' <<<"$health"; then
-                exit 0
-              fi
-            fi
-            sleep 2
-          done
-          exit 1
-
-      - name: Verify remote Control Plane end to end
-        shell: bash
-        env:
-          CONTROL_PLANE_URL: ${{ steps.deploy.outputs.control_plane_url }}
-          ORDAX_OPERATOR_TOKEN: ${{ secrets.ORDAX_OPERATOR_TOKEN }}
-        run: python scripts/verify_cloudflare_v3.py --base-url "$CONTROL_PLANE_URL" --operator-token "$ORDAX_OPERATOR_TOKEN"
+        run: python scripts/verify_cloudflare_public.py --base-url "$CONTROL_PLANE_URL"
