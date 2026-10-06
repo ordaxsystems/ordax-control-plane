@@ -23,6 +23,7 @@ class OrdaxChatGptConnectorPackageTests(unittest.TestCase):
         )
         interface = manifest["extensions"]["com.openai"]["interface"]
         self.assertIn("Computer Control", interface["capabilities"])
+        self.assertIn("Owner-approved Full Computer Control", interface["capabilities"])
         self.assertIn("Persistent project context", interface["capabilities"])
         self.assertIn("Blender & Unity adapters", interface["capabilities"])
         self.assertNotIn("Development commands", interface["capabilities"])
@@ -32,6 +33,8 @@ class OrdaxChatGptConnectorPackageTests(unittest.TestCase):
         )
         self.assertIn("durable project continuity", interface["longDescription"])
         self.assertIn("does not own ORDAX Studio", interface["longDescription"])
+        self.assertIn("Full Access", interface["longDescription"])
+        self.assertIn("cannot mint its own grants", interface["longDescription"])
 
     def test_connector_has_single_authoritative_source_tree(self):
         self.assertTrue(PLUGIN_ROOT.is_dir())
