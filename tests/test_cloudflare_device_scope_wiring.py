@@ -28,14 +28,27 @@ class CloudflareDeviceScopeWiringTests(unittest.TestCase):
         cls.mcp = MCP.read_text(encoding="utf-8")
         cls.scope = SCOPE.read_text(encoding="utf-8")
         cls.owner_grants = OWNER_GRANTS.read_text(encoding="utf-8")
-        cls.device_actions = _quoted_actions(
-            _set_body(cls.scope, "export const DEVICE_SCOPED_ACTIONS = new Set<string>([")
+        cls.computer_actions = _quoted_actions(
+            _set_body(cls.scope, "export const COMPUTER_DEVICE_ACTIONS = new Set<string>([")
         )
+        cls.intelligence_actions = _quoted_actions(
+            _set_body(cls.scope, "export const APP_INTELLIGENCE_DEVICE_ACTIONS = new Set<string>([")
+        )
+        cls.device_actions = cls.computer_actions | cls.intelligence_actions
 
     def test_worker_consumes_canonical_device_scope_ssot(self) -> None:
         self.assertIn('from "./product_action_scope"', self.worker)
         self.assertIn("DEVICE_SCOPED_ACTIONS", self.worker)
         self.assertIn("projectBindingMatchesScope", self.worker)
+
+    def test_device_scope_union_is_domain_explicit(self) -> None:
+        self.assertTrue(self.computer_actions)
+        self.assertEqual(
+            self.intelligence_actions,
+            {"intelligence.app_catalog", "intelligence.app_detail"},
+        )
+        self.assertIn("...COMPUTER_DEVICE_ACTIONS", self.scope)
+        self.assertIn("...APP_INTELLIGENCE_DEVICE_ACTIONS", self.scope)
 
     def test_device_computer_actions_are_not_project_scoped_in_worker(self) -> None:
         project_block = _set_body(
