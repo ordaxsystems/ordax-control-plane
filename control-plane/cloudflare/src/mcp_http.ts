@@ -502,6 +502,50 @@ function specFor(name: string): ToolSpec | undefined {
   return TOOLS.find((tool) => tool.name === name);
 }
 
+const OWNER_GRANT_PROFILE_BY_ACTION = new Map<string, string>([
+  ...[
+    "computer.active_window",
+    "computer.click",
+    "computer.drag",
+    "computer.focus_window",
+    "computer.hotkey",
+    "computer.launch_app",
+    "computer.mouse_move",
+    "computer.processes",
+    "computer.screen_info",
+    "computer.screenshot",
+    "computer.scroll",
+    "computer.type",
+    "computer.windows",
+  ].map((action) => [action, "interactive-computer-control"] as const),
+  ...[
+    "computer.directory_create",
+    "computer.directory_list",
+    "computer.file_stat",
+    "computer.path_move",
+    "computer.path_remove",
+    "computer.search",
+    "computer.text_patch",
+    "computer.text_read",
+    "computer.text_write",
+  ].map((action) => [action, "computer-filesystem"] as const),
+  ...[
+    "computer.clipboard_read",
+    "computer.clipboard_write",
+  ].map((action) => [action, "computer-clipboard"] as const),
+  ["computer.terminate_process", "computer-process-control"],
+]);
+
+function authorizationHintForAction(action: string): JsonObject | null {
+  const profile = OWNER_GRANT_PROFILE_BY_ACTION.get(action);
+  if (!profile) return null;
+  return {
+    required_owner_profile: profile,
+    authorization_surface: "ORDAX Studio > Acesso ao computador",
+    authorization_required: true,
+  };
+}
+
 async function waitForAction(source: Request, requestId: string, timeoutMs: number, handlers: OrdaxMcpHandlers): Promise<JsonObject> {
   const deadline = Date.now() + timeoutMs;
   while (true) {
@@ -585,7 +629,13 @@ async function callTool(source: Request, name: string, args: JsonObject, handler
   });
   const created = await handlers.createAction(createRequest);
   const createdPayload = await bodyJson(created);
-  if (!created.ok) return textToolResult(createdPayload, true);
+  if (!created.ok) {
+    if (createdPayload.error === "product_grant_not_resolved") {
+      const hint = authorizationHintForAction(spec.action);
+      return textToolResult(hint ? { ...createdPayload, ...hint } : createdPayload, true);
+    }
+    return textToolResult(createdPayload, true);
+  }
   const requestId = typeof createdPayload.request_id === "string" ? createdPayload.request_id : "";
   if (!requestId) return textToolResult({ ok: false, error: "product_request_id_missing", response: createdPayload }, true);
   const finalPayload = await waitForAction(source, requestId, waitMs, handlers);
