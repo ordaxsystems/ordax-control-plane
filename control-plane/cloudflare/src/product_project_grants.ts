@@ -2,6 +2,7 @@ import {
   authenticateProductRequest,
   type ProductAuthEnv,
 } from "./product_auth";
+import { PROJECT_BROWSER_ACTIONS } from "./product_action_scope";
 
 type JsonObject = Record<string, unknown>;
 
@@ -17,17 +18,7 @@ const MAX_PROJECTS = 20;
 export const PROJECT_BROWSER_AUTOMATION_MODE = "project-browser-automation";
 
 const OWNER_PROJECT_GRANT_PROFILES: Record<string, readonly string[]> = {
-  [PROJECT_BROWSER_AUTOMATION_MODE]: [
-    "browser.click",
-    "browser.list",
-    "browser.navigate",
-    "browser.screenshot",
-    "browser.snapshot",
-    "browser.start",
-    "browser.status",
-    "browser.stop",
-    "browser.type",
-  ],
+  [PROJECT_BROWSER_AUTOMATION_MODE]: [...PROJECT_BROWSER_ACTIONS].sort(),
 };
 
 function json(body: unknown, status = 200): Response {
