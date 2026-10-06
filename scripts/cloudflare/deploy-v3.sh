@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# BOOTSTRAP / INFRASTRUCTURE MIGRATION ONLY.
+# Routine production deploys use deploy-production-v3.sh with a Worker-scoped
+# credential. This script intentionally requires broader D1/R2/operator authority.
 set -euo pipefail
 
 WRANGLER_VERSION="${WRANGLER_VERSION:-4.141.0}"

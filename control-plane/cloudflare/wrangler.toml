@@ -9,10 +9,15 @@ enabled = true
 [triggers]
 crons = ["17 3 * * *"]
 
+[vars]
+PRODUCT_AUTH_ISSUER = "https://eobcxuyvhkvdmkbaihwh.supabase.co/auth/v1"
+PRODUCT_AUTH_AUDIENCE = "authenticated"
+PRODUCT_AUTH_JWKS_URL = "https://eobcxuyvhkvdmkbaihwh.supabase.co/auth/v1/.well-known/jwks.json"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "ordax-control-plane-v3"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "ac121be2-0459-47f9-abb7-1033c60c52c0"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
