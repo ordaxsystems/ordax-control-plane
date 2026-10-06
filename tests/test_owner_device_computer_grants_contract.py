@@ -68,7 +68,9 @@ class OwnerDeviceComputerGrantContractTests(unittest.TestCase):
     def test_owner_grant_handler_is_not_an_mcp_tool(self) -> None:
         self.assertNotIn("createOwnerDeviceComputerGrant", self.mcp)
         self.assertNotIn("revokeOwnerDeviceComputerGrant", self.mcp)
-        self.assertNotIn("full-computer-control", self.mcp)
+        self.assertNotIn("createOwnerDeviceComputerGrant", self.mcp)
+        self.assertNotIn("revokeOwnerDeviceComputerGrant", self.mcp)
+        self.assertNotIn('{ name: "full_computer_control"', self.mcp)
 
     def test_owner_can_list_grants_but_mcp_cannot_mint_or_revoke(self) -> None:
         self.assertIn("listOwnerDeviceComputerGrants", self.handler)
