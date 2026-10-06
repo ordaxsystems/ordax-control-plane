@@ -109,6 +109,23 @@ Perfis server-derived:
 Esses perfis são independentes da política local do Windows: grant remoto e política
 local precisam permitir a ação. Contexto do modelo nunca amplia autoridade.
 
+### Grant de navegador gerenciado por projeto
+
+A automação web do Studio possui uma autorização própria e **não herda Computer
+Control**. O perfil server-derived `project-browser-automation` concede somente as
+ações tipadas `browser.*` do navegador Chromium gerenciado pelo Runtime e exige um
+ou mais projetos explícitos.
+
+O proprietário cria, lista e revoga esse grant pelas rotas Product autenticadas
+`/v3/product/project-capability-grants`. O cliente fornece apenas o `link_id`, o
+perfil revisado, os slugs de projeto e a validade; o servidor deriva o conjunto exato
+de ações. Essas rotas não são ferramentas MCP, portanto um modelo remoto não pode
+conceder ou ampliar a própria autoridade.
+
+Esse caminho é separado do navegador nativo do OrdaX OS. No Studio ele existe para
+automação de projeto via sessão gerenciada/CDP e não deve degradar silenciosamente
+para mouse, teclado ou coordenadas de desktop quando a autorização estiver ausente.
+
 ## Segurança
 
 - token administrativo separado do token do dispositivo e da futura identidade Product;
