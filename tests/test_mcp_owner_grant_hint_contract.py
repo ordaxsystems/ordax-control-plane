@@ -23,19 +23,33 @@ class McpOwnerGrantHintContractTests(unittest.TestCase):
             "computer-filesystem",
             "computer-clipboard",
             "computer-process-control",
+            "project-browser-automation",
         ):
             self.assertIn(mode, self.source)
         self.assertNotIn('required_owner_profile: "full-computer-control"', self.source)
 
     def test_sensitive_actions_have_specific_profiles(self) -> None:
-        self.assertIn('["computer.terminate_process", "computer-process-control"]', self.source)
+        self.assertIn('"computer.terminate_process", { profile: "computer-process-control"', self.source)
         for action in ("computer.clipboard_read", "computer.clipboard_write"):
             self.assertIn(f'"{action}"', self.source)
         for action in ("computer.drag", "computer.hotkey"):
             self.assertIn(f'"{action}"', self.source)
 
+    def test_browser_actions_use_browser_profile_without_computer_authority(self) -> None:
+        for action in (
+            "browser.start",
+            "browser.navigate",
+            "browser.snapshot",
+            "browser.click",
+            "browser.type",
+        ):
+            self.assertIn(f'"{action}"', self.source)
+        self.assertIn('profile: "project-browser-automation"', self.source)
+        self.assertIn('BROWSER_GRANT_SURFACE = "ORDAX Studio > Navegador gerenciado"', self.source)
+
     def test_authorization_surface_is_owner_facing_studio(self) -> None:
-        self.assertIn('authorization_surface: "ORDAX Studio > Acesso ao computador"', self.source)
+        self.assertIn('COMPUTER_GRANT_SURFACE = "ORDAX Studio > Acesso ao computador"', self.source)
+        self.assertIn('authorization_surface: hint.surface', self.source)
         self.assertIn('authorization_required: true', self.source)
 
 
