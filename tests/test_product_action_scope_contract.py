@@ -49,6 +49,14 @@ class ProductActionScopeContractTests(unittest.TestCase):
         self.assertNotIn("process.start", scoped)
         self.assertTrue(all(action.startswith("computer.") for action in scoped))
 
+    def test_app_intelligence_scope_is_explicit_and_separate_from_computer(self) -> None:
+        self.assertIn("APP_INTELLIGENCE_DEVICE_ACTIONS", self.scope)
+        self.assertIn('"intelligence.app_catalog"', self.scope)
+        self.assertIn('"intelligence.app_detail"', self.scope)
+        self.assertIn("COMPUTER_DEVICE_ACTIONS", self.scope)
+        self.assertIn("...COMPUTER_DEVICE_ACTIONS", self.scope)
+        self.assertIn("...APP_INTELLIGENCE_DEVICE_ACTIONS", self.scope)
+
     def test_binding_contract_forbids_synthetic_project_on_device_actions(self) -> None:
         self.assertIn('return scope === "device" ? project === null : project !== null;', self.scope)
         self.assertIn('if (DEVICE_SCOPED_ACTIONS.has(action)) return "device";', self.scope)
