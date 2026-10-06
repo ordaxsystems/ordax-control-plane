@@ -7,8 +7,10 @@ export type ProductActionScope = "device" | "project";
  * synthetic project id. Project-scoped actions remain bound to an explicit
  * registered project grant.
  *
- * Keep this list explicit: adding a new remote Computer capability requires a
- * reviewed scope decision instead of inheriting authority from a prefix match.
+ * Keep these sets explicit: adding a new remote Computer or App Intelligence
+ * capability requires a reviewed scope decision instead of inheriting authority
+ * from a prefix match. Domain grant profiles must use their own subset, never
+ * the DEVICE_SCOPED_ACTIONS union.
  */
 export const PROJECT_BROWSER_ACTIONS = new Set<string>([
   "browser.click",
@@ -22,7 +24,12 @@ export const PROJECT_BROWSER_ACTIONS = new Set<string>([
   "browser.type",
 ]);
 
-export const DEVICE_SCOPED_ACTIONS = new Set<string>([
+export const APP_INTELLIGENCE_DEVICE_ACTIONS = new Set<string>([
+  "intelligence.app_catalog",
+  "intelligence.app_detail",
+]);
+
+export const COMPUTER_DEVICE_ACTIONS = new Set<string>([
   "computer.access_status",
   "computer.active_window",
   "computer.click",
@@ -50,6 +57,13 @@ export const DEVICE_SCOPED_ACTIONS = new Set<string>([
   "computer.type",
   "computer.windows",
 ]);
+
+export const DEVICE_SCOPED_ACTIONS = new Set<string>([
+  ...COMPUTER_DEVICE_ACTIONS,
+  ...APP_INTELLIGENCE_DEVICE_ACTIONS,
+]);
+
+
 
 export function isDeviceScopedAction(action: string): boolean {
   return DEVICE_SCOPED_ACTIONS.has(action);
