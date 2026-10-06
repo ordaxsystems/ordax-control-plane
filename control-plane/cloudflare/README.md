@@ -90,6 +90,25 @@ e só é habilitada quando `PRODUCT_AUTH_ISSUER`, `PRODUCT_AUTH_AUDIENCE` e
 fechado. Nesta etapa ela apenas comprova o `subject_id`; não resolve grants nem
 enfileira ações.
 
+
+### Grants de Computer Control do proprietário
+
+`POST /v3/product/device-computer-grants` é uma rota Product autenticada pelo
+próprio usuário. A autoridade é derivada no servidor a partir do subject autenticado
+e de um `link_id` ativo daquele subject; o cliente não envia `subject_id`, `device_id`,
+`actions` ou `projects`. O MCP remoto não expõe essa rota como tool.
+
+Perfis server-derived:
+
+- `interactive-computer-control`: janelas, screenshot, mouse, click/drag, scroll, digitação, hotkeys e launch de aplicativos; **não** inclui clipboard, filesystem nem término de processos;
+- `computer-filesystem`: operações de arquivo/diretório limitadas pela política local do Runtime;
+- `computer-clipboard`: leitura/escrita do clipboard;
+- `computer-process-control`: inspeção e término de processos não protegidos;
+- `full-computer-control`: compatibilidade/opt-in explícito para toda a superfície device-scoped.
+
+Esses perfis são independentes da política local do Windows: grant remoto e política
+local precisam permitir a ação. Contexto do modelo nunca amplia autoridade.
+
 ## Segurança
 
 - token administrativo separado do token do dispositivo e da futura identidade Product;

@@ -10,6 +10,7 @@ import {
 } from "./product_action_scope";
 import {
   createOwnerDeviceComputerGrant,
+  listOwnerDeviceComputerGrants,
   revokeOwnerDeviceComputerGrant,
 } from "./product_device_grants";
 import { handleOrdaxMcp } from "./mcp_http";
@@ -2287,6 +2288,9 @@ export default {
     }
     if (request.method === "POST" && url.pathname === "/v3/product/device-computer-grants") {
       return createOwnerDeviceComputerGrant(request, env);
+    }
+    if (request.method === "GET" && url.pathname === "/v3/product/device-computer-grants") {
+      return listOwnerDeviceComputerGrants(request, env);
     }
     if (
       request.method === "DELETE"

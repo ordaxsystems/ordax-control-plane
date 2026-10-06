@@ -12,7 +12,50 @@ export interface ProductDeviceGrantEnv extends ProductAuthEnv {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const FULL_COMPUTER_CONTROL_MODE = "full-computer-control";
+export const INTERACTIVE_COMPUTER_CONTROL_MODE = "interactive-computer-control";
+export const FILESYSTEM_COMPUTER_CONTROL_MODE = "computer-filesystem";
+export const CLIPBOARD_COMPUTER_CONTROL_MODE = "computer-clipboard";
+export const PROCESS_COMPUTER_CONTROL_MODE = "computer-process-control";
 const MAX_BODY_BYTES = 16 * 1024;
+
+const OWNER_DEVICE_COMPUTER_GRANT_PROFILES: Record<string, readonly string[]> = {
+  [INTERACTIVE_COMPUTER_CONTROL_MODE]: [
+    "computer.access_status",
+    "computer.active_window",
+    "computer.click",
+    "computer.drag",
+    "computer.focus_window",
+    "computer.hotkey",
+    "computer.launch_app",
+    "computer.mouse_move",
+    "computer.processes",
+    "computer.screen_info",
+    "computer.screenshot",
+    "computer.scroll",
+    "computer.type",
+    "computer.windows",
+  ],
+  [FILESYSTEM_COMPUTER_CONTROL_MODE]: [
+    "computer.access_status",
+    "computer.directory_create",
+    "computer.directory_list",
+    "computer.file_stat",
+    "computer.path_move",
+    "computer.path_remove",
+    "computer.search",
+    "computer.text_patch",
+    "computer.text_read",
+    "computer.text_write",
+  ],
+  [CLIPBOARD_COMPUTER_CONTROL_MODE]: [
+    "computer.clipboard_read",
+    "computer.clipboard_write",
+  ],
+  [PROCESS_COMPUTER_CONTROL_MODE]: [
+    "computer.processes",
+    "computer.terminate_process",
+  ],
+};
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -53,6 +96,25 @@ function stableComputerActions(): string[] {
   return [...DEVICE_SCOPED_ACTIONS].sort();
 }
 
+function actionsForOwnerDeviceMode(mode: string): string[] | null {
+  if (mode === FULL_COMPUTER_CONTROL_MODE) return stableComputerActions();
+  const profile = OWNER_DEVICE_COMPUTER_GRANT_PROFILES[mode];
+  if (!profile || profile.length === 0) return null;
+  if (profile.some((action) => !DEVICE_SCOPED_ACTIONS.has(action))) return null;
+  return [...profile].sort();
+}
+
+function ownerDeviceModeForActions(actions: string[]): string {
+  const normalized = [...actions].sort();
+  const full = stableComputerActions();
+  if (JSON.stringify(normalized) === JSON.stringify(full)) return FULL_COMPUTER_CONTROL_MODE;
+  for (const [mode, profile] of Object.entries(OWNER_DEVICE_COMPUTER_GRANT_PROFILES)) {
+    const expected = [...profile].sort();
+    if (JSON.stringify(normalized) === JSON.stringify(expected)) return mode;
+  }
+  return "custom-device-grant";
+}
+
 function onlyAllowedCreateKeys(body: JsonObject): boolean {
   const allowed = new Set(["link_id", "mode", "expires_at"]);
   return Object.keys(body).every((key) => allowed.has(key));
@@ -82,12 +144,16 @@ function publicGrant(row: ProductGrantRow): JsonObject {
   let projects: unknown = [];
   try { actions = JSON.parse(row.actions_json); } catch { actions = []; }
   try { projects = JSON.parse(row.projects_json); } catch { projects = []; }
+  const safeActions = Array.isArray(actions)
+    ? actions.filter((action): action is string => typeof action === "string")
+    : [];
   return {
     id: row.id,
     subject_id: row.subject_id,
     space_id: row.space_id,
     device_id: row.device_id,
-    actions: Array.isArray(actions) ? actions : [],
+    mode: ownerDeviceModeForActions(safeActions),
+    actions: safeActions,
     projects: Array.isArray(projects) ? projects : [],
     expires_at: row.expires_at,
     created_at: row.created_at,
@@ -151,10 +217,11 @@ export async function createOwnerDeviceComputerGrant(
 
   const linkId = typeof body.link_id === "string" ? body.link_id : "";
   const mode = typeof body.mode === "string" ? body.mode : "";
+  const actions = actionsForOwnerDeviceMode(mode);
   const expiresAt = parseExpiry(body.expires_at);
   if (
     !UUID_RE.test(linkId)
-    || mode !== FULL_COMPUTER_CONTROL_MODE
+    || actions === null
     || expiresAt === undefined
   ) {
     return json({ ok: false, error: "owner_device_grant_invalid" }, 400);
@@ -165,7 +232,6 @@ export async function createOwnerDeviceComputerGrant(
     return json({ ok: false, error: "product_device_link_not_found" }, 404);
   }
 
-  const actions = stableComputerActions();
   const actionsJson = JSON.stringify(actions);
   const projectsJson = "[]";
   const now = new Date().toISOString();
@@ -196,7 +262,7 @@ export async function createOwnerDeviceComputerGrant(
     return json({
       ok: true,
       replayed: true,
-      mode: FULL_COMPUTER_CONTROL_MODE,
+      mode,
       grant: publicGrant(existing),
       provenance: { link_id: link.id },
     });
@@ -233,10 +299,60 @@ export async function createOwnerDeviceComputerGrant(
   return json({
     ok: true,
     replayed: false,
-    mode: FULL_COMPUTER_CONTROL_MODE,
+    mode,
     grant: publicGrant(created),
     provenance: { link_id: link.id },
   }, 201);
+}
+
+/** List active/revoked device Computer grants owned by the authenticated subject. */
+export async function listOwnerDeviceComputerGrants(
+  request: Request,
+  env: ProductDeviceGrantEnv,
+): Promise<Response> {
+  const identity = await authenticateProductRequest(request, env);
+  if (!identity.ok) return json({ ok: false, error: identity.error }, identity.status);
+
+  const url = new URL(request.url);
+  const linkId = (url.searchParams.get("link_id") || "").trim();
+  if (linkId && !UUID_RE.test(linkId)) {
+    return json({ ok: false, error: "owner_device_grant_link_id_invalid" }, 400);
+  }
+
+  const query = linkId
+    ? `SELECT DISTINCT g.id, g.subject_id, g.space_id, g.device_id, g.actions_json,
+              g.projects_json, g.expires_at, g.created_at, g.revoked_at
+       FROM ordax_product_grants g
+       JOIN ordax_product_device_links l
+         ON l.subject_id = g.subject_id
+        AND l.device_id = g.device_id
+        AND l.space_id = COALESCE(g.space_id, '')
+       JOIN ordax_devices d ON d.id = l.device_id
+       WHERE g.subject_id = ?1
+         AND l.id = ?2
+         AND l.revoked_at IS NULL
+         AND d.revoked_at IS NULL
+       ORDER BY g.created_at DESC`
+    : `SELECT DISTINCT g.id, g.subject_id, g.space_id, g.device_id, g.actions_json,
+              g.projects_json, g.expires_at, g.created_at, g.revoked_at
+       FROM ordax_product_grants g
+       JOIN ordax_product_device_links l
+         ON l.subject_id = g.subject_id
+        AND l.device_id = g.device_id
+        AND l.space_id = COALESCE(g.space_id, '')
+       JOIN ordax_devices d ON d.id = l.device_id
+       WHERE g.subject_id = ?1
+         AND l.revoked_at IS NULL
+         AND d.revoked_at IS NULL
+       ORDER BY g.created_at DESC`;
+  const statement = env.DB.prepare(query);
+  const result = linkId
+    ? await statement.bind(identity.subjectId, linkId).all<ProductGrantRow>()
+    : await statement.bind(identity.subjectId).all<ProductGrantRow>();
+  const grants = (result.results ?? [])
+    .filter(rowIsDeviceComputerGrant)
+    .map(publicGrant);
+  return json({ ok: true, grants });
 }
 
 /**

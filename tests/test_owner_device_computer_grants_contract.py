@@ -23,13 +23,31 @@ class OwnerDeviceComputerGrantContractTests(unittest.TestCase):
         self.assertNotIn("body.device_id", self.handler)
         self.assertNotIn("body.space_id", self.handler)
 
-    def test_full_computer_control_is_a_fixed_server_mode(self) -> None:
+    def test_owner_computer_control_modes_are_fixed_server_profiles(self) -> None:
         self.assertIn('FULL_COMPUTER_CONTROL_MODE = "full-computer-control"', self.handler)
-        self.assertIn("const actions = stableComputerActions();", self.handler)
+        self.assertIn('INTERACTIVE_COMPUTER_CONTROL_MODE = "interactive-computer-control"', self.handler)
+        self.assertIn('FILESYSTEM_COMPUTER_CONTROL_MODE = "computer-filesystem"', self.handler)
+        self.assertIn('CLIPBOARD_COMPUTER_CONTROL_MODE = "computer-clipboard"', self.handler)
+        self.assertIn('PROCESS_COMPUTER_CONTROL_MODE = "computer-process-control"', self.handler)
+        self.assertIn("actionsForOwnerDeviceMode(mode)", self.handler)
         self.assertIn("[...DEVICE_SCOPED_ACTIONS].sort()", self.handler)
         self.assertNotIn("body.actions", self.handler)
         self.assertNotIn("body.projects", self.handler)
         self.assertNotIn("body.project", self.handler)
+
+    def test_interactive_profile_does_not_inherit_sensitive_device_authority(self) -> None:
+        start = self.handler.index("[INTERACTIVE_COMPUTER_CONTROL_MODE]: [")
+        block = self.handler[start:].split("],", 1)[0]
+        self.assertIn('"computer.hotkey"', block)
+        self.assertIn('"computer.drag"', block)
+        self.assertNotIn('"computer.clipboard_read"', block)
+        self.assertNotIn('"computer.text_read"', block)
+        self.assertNotIn('"computer.terminate_process"', block)
+
+    def test_sensitive_profiles_are_separate(self) -> None:
+        self.assertIn('[CLIPBOARD_COMPUTER_CONTROL_MODE]: [', self.handler)
+        self.assertIn('[FILESYSTEM_COMPUTER_CONTROL_MODE]: [', self.handler)
+        self.assertIn('[PROCESS_COMPUTER_CONTROL_MODE]: [', self.handler)
 
     def test_device_grants_have_no_synthetic_project_scope(self) -> None:
         self.assertIn('const projectsJson = "[]";', self.handler)
@@ -51,6 +69,17 @@ class OwnerDeviceComputerGrantContractTests(unittest.TestCase):
         self.assertNotIn("createOwnerDeviceComputerGrant", self.mcp)
         self.assertNotIn("revokeOwnerDeviceComputerGrant", self.mcp)
         self.assertNotIn("full-computer-control", self.mcp)
+
+    def test_owner_can_list_grants_but_mcp_cannot_mint_or_revoke(self) -> None:
+        self.assertIn("listOwnerDeviceComputerGrants", self.handler)
+        self.assertIn("authenticateProductRequest(request, env)", self.handler)
+        self.assertIn('url.searchParams.get("link_id")', self.handler)
+        self.assertIn('return "custom-device-grant";', self.handler)
+        self.assertNotIn("listOwnerDeviceComputerGrants", self.mcp)
+
+    def test_create_response_preserves_requested_profile_mode(self) -> None:
+        self.assertIn("mode,\n      grant: publicGrant(existing)", self.handler)
+        self.assertIn("mode,\n    grant: publicGrant(created)", self.handler)
 
 
 if __name__ == "__main__":
