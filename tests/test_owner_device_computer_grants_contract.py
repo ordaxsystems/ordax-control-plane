@@ -23,13 +23,31 @@ class OwnerDeviceComputerGrantContractTests(unittest.TestCase):
         self.assertNotIn("body.device_id", self.handler)
         self.assertNotIn("body.space_id", self.handler)
 
-    def test_full_computer_control_is_a_fixed_server_mode(self) -> None:
+    def test_owner_computer_control_modes_are_fixed_server_profiles(self) -> None:
         self.assertIn('FULL_COMPUTER_CONTROL_MODE = "full-computer-control"', self.handler)
-        self.assertIn("const actions = stableComputerActions();", self.handler)
+        self.assertIn('INTERACTIVE_COMPUTER_CONTROL_MODE = "interactive-computer-control"', self.handler)
+        self.assertIn('FILESYSTEM_COMPUTER_CONTROL_MODE = "computer-filesystem"', self.handler)
+        self.assertIn('CLIPBOARD_COMPUTER_CONTROL_MODE = "computer-clipboard"', self.handler)
+        self.assertIn('PROCESS_COMPUTER_CONTROL_MODE = "computer-process-control"', self.handler)
+        self.assertIn("actionsForOwnerDeviceMode(mode)", self.handler)
         self.assertIn("[...DEVICE_SCOPED_ACTIONS].sort()", self.handler)
         self.assertNotIn("body.actions", self.handler)
         self.assertNotIn("body.projects", self.handler)
         self.assertNotIn("body.project", self.handler)
+
+    def test_interactive_profile_does_not_inherit_sensitive_device_authority(self) -> None:
+        start = self.handler.index("[INTERACTIVE_COMPUTER_CONTROL_MODE]: [")
+        block = self.handler[start:].split("],", 1)[0]
+        self.assertIn('"computer.hotkey"', block)
+        self.assertIn('"computer.drag"', block)
+        self.assertNotIn('"computer.clipboard_read"', block)
+        self.assertNotIn('"computer.text_read"', block)
+        self.assertNotIn('"computer.terminate_process"', block)
+
+    def test_sensitive_profiles_are_separate(self) -> None:
+        self.assertIn('[CLIPBOARD_COMPUTER_CONTROL_MODE]: [', self.handler)
+        self.assertIn('[FILESYSTEM_COMPUTER_CONTROL_MODE]: [', self.handler)
+        self.assertIn('[PROCESS_COMPUTER_CONTROL_MODE]: [', self.handler)
 
     def test_device_grants_have_no_synthetic_project_scope(self) -> None:
         self.assertIn('const projectsJson = "[]";', self.handler)

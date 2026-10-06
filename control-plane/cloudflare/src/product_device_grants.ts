@@ -12,7 +12,50 @@ export interface ProductDeviceGrantEnv extends ProductAuthEnv {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const FULL_COMPUTER_CONTROL_MODE = "full-computer-control";
+export const INTERACTIVE_COMPUTER_CONTROL_MODE = "interactive-computer-control";
+export const FILESYSTEM_COMPUTER_CONTROL_MODE = "computer-filesystem";
+export const CLIPBOARD_COMPUTER_CONTROL_MODE = "computer-clipboard";
+export const PROCESS_COMPUTER_CONTROL_MODE = "computer-process-control";
 const MAX_BODY_BYTES = 16 * 1024;
+
+const OWNER_DEVICE_COMPUTER_GRANT_PROFILES: Record<string, readonly string[]> = {
+  [INTERACTIVE_COMPUTER_CONTROL_MODE]: [
+    "computer.access_status",
+    "computer.active_window",
+    "computer.click",
+    "computer.drag",
+    "computer.focus_window",
+    "computer.hotkey",
+    "computer.launch_app",
+    "computer.mouse_move",
+    "computer.processes",
+    "computer.screen_info",
+    "computer.screenshot",
+    "computer.scroll",
+    "computer.type",
+    "computer.windows",
+  ],
+  [FILESYSTEM_COMPUTER_CONTROL_MODE]: [
+    "computer.access_status",
+    "computer.directory_create",
+    "computer.directory_list",
+    "computer.file_stat",
+    "computer.path_move",
+    "computer.path_remove",
+    "computer.search",
+    "computer.text_patch",
+    "computer.text_read",
+    "computer.text_write",
+  ],
+  [CLIPBOARD_COMPUTER_CONTROL_MODE]: [
+    "computer.clipboard_read",
+    "computer.clipboard_write",
+  ],
+  [PROCESS_COMPUTER_CONTROL_MODE]: [
+    "computer.processes",
+    "computer.terminate_process",
+  ],
+};
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -51,6 +94,14 @@ function parseExpiry(value: unknown): string | null | undefined {
 
 function stableComputerActions(): string[] {
   return [...DEVICE_SCOPED_ACTIONS].sort();
+}
+
+function actionsForOwnerDeviceMode(mode: string): string[] | null {
+  if (mode === FULL_COMPUTER_CONTROL_MODE) return stableComputerActions();
+  const profile = OWNER_DEVICE_COMPUTER_GRANT_PROFILES[mode];
+  if (!profile || profile.length === 0) return null;
+  if (profile.some((action) => !DEVICE_SCOPED_ACTIONS.has(action))) return null;
+  return [...profile].sort();
 }
 
 function onlyAllowedCreateKeys(body: JsonObject): boolean {
@@ -151,10 +202,11 @@ export async function createOwnerDeviceComputerGrant(
 
   const linkId = typeof body.link_id === "string" ? body.link_id : "";
   const mode = typeof body.mode === "string" ? body.mode : "";
+  const actions = actionsForOwnerDeviceMode(mode);
   const expiresAt = parseExpiry(body.expires_at);
   if (
     !UUID_RE.test(linkId)
-    || mode !== FULL_COMPUTER_CONTROL_MODE
+    || actions === null
     || expiresAt === undefined
   ) {
     return json({ ok: false, error: "owner_device_grant_invalid" }, 400);
@@ -165,7 +217,6 @@ export async function createOwnerDeviceComputerGrant(
     return json({ ok: false, error: "product_device_link_not_found" }, 404);
   }
 
-  const actions = stableComputerActions();
   const actionsJson = JSON.stringify(actions);
   const projectsJson = "[]";
   const now = new Date().toISOString();
