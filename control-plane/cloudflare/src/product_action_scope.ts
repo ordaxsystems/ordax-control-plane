@@ -22,7 +22,12 @@ export const PROJECT_BROWSER_ACTIONS = new Set<string>([
   "browser.type",
 ]);
 
-export const DEVICE_SCOPED_ACTIONS = new Set<string>([
+export const APP_INTELLIGENCE_DEVICE_ACTIONS = new Set<string>([
+  "intelligence.app_catalog",
+  "intelligence.app_detail",
+]);
+
+export const COMPUTER_DEVICE_ACTIONS = new Set<string>([
   "computer.access_status",
   "computer.active_window",
   "computer.click",
@@ -49,6 +54,11 @@ export const DEVICE_SCOPED_ACTIONS = new Set<string>([
   "computer.text_write",
   "computer.type",
   "computer.windows",
+]);
+
+export const DEVICE_SCOPED_ACTIONS = new Set<string>([
+  ...COMPUTER_DEVICE_ACTIONS,
+  ...APP_INTELLIGENCE_DEVICE_ACTIONS,
 ]);
 
 export function isDeviceScopedAction(action: string): boolean {
