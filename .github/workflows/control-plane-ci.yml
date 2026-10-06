@@ -30,9 +30,11 @@ jobs:
       - name: Build production Worker bundle without deployment authority
         run: |
           npx --yes wrangler@4.141.0 deploy --dry-run --config control-plane/cloudflare/wrangler.toml --outdir dist/control-plane-worker
-          test -f dist/control-plane-worker/index.js
-          grep -q 'app_intelligence_catalog' dist/control-plane-worker/index.js
-          grep -q 'app_intelligence_detail' dist/control-plane-worker/index.js
+          bundle="$(find dist/control-plane-worker -maxdepth 2 -type f \\( -name '*.js' -o -name '*.mjs' \\) -print -quit)"
+          test -n "$bundle"
+          grep -q 'app_intelligence_catalog' "$bundle"
+          grep -q 'app_intelligence_detail' "$bundle"
+          printf 'WORKER_BUNDLE=%s\\n' "$bundle"
       - name: Publish exact tested Worker bundle
         uses: actions/upload-artifact@v4
         with:
