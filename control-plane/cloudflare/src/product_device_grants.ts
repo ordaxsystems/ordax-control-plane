@@ -104,6 +104,17 @@ function actionsForOwnerDeviceMode(mode: string): string[] | null {
   return [...profile].sort();
 }
 
+function ownerDeviceModeForActions(actions: string[]): string {
+  const normalized = [...actions].sort();
+  const full = stableComputerActions();
+  if (JSON.stringify(normalized) === JSON.stringify(full)) return FULL_COMPUTER_CONTROL_MODE;
+  for (const [mode, profile] of Object.entries(OWNER_DEVICE_COMPUTER_GRANT_PROFILES)) {
+    const expected = [...profile].sort();
+    if (JSON.stringify(normalized) === JSON.stringify(expected)) return mode;
+  }
+  return "custom-device-grant";
+}
+
 function onlyAllowedCreateKeys(body: JsonObject): boolean {
   const allowed = new Set(["link_id", "mode", "expires_at"]);
   return Object.keys(body).every((key) => allowed.has(key));
@@ -133,12 +144,16 @@ function publicGrant(row: ProductGrantRow): JsonObject {
   let projects: unknown = [];
   try { actions = JSON.parse(row.actions_json); } catch { actions = []; }
   try { projects = JSON.parse(row.projects_json); } catch { projects = []; }
+  const safeActions = Array.isArray(actions)
+    ? actions.filter((action): action is string => typeof action === "string")
+    : [];
   return {
     id: row.id,
     subject_id: row.subject_id,
     space_id: row.space_id,
     device_id: row.device_id,
-    actions: Array.isArray(actions) ? actions : [],
+    mode: ownerDeviceModeForActions(safeActions),
+    actions: safeActions,
     projects: Array.isArray(projects) ? projects : [],
     expires_at: row.expires_at,
     created_at: row.created_at,
@@ -247,7 +262,7 @@ export async function createOwnerDeviceComputerGrant(
     return json({
       ok: true,
       replayed: true,
-      mode: FULL_COMPUTER_CONTROL_MODE,
+      mode,
       grant: publicGrant(existing),
       provenance: { link_id: link.id },
     });
@@ -284,10 +299,60 @@ export async function createOwnerDeviceComputerGrant(
   return json({
     ok: true,
     replayed: false,
-    mode: FULL_COMPUTER_CONTROL_MODE,
+    mode,
     grant: publicGrant(created),
     provenance: { link_id: link.id },
   }, 201);
+}
+
+/** List active/revoked device Computer grants owned by the authenticated subject. */
+export async function listOwnerDeviceComputerGrants(
+  request: Request,
+  env: ProductDeviceGrantEnv,
+): Promise<Response> {
+  const identity = await authenticateProductRequest(request, env);
+  if (!identity.ok) return json({ ok: false, error: identity.error }, identity.status);
+
+  const url = new URL(request.url);
+  const linkId = (url.searchParams.get("link_id") || "").trim();
+  if (linkId && !UUID_RE.test(linkId)) {
+    return json({ ok: false, error: "owner_device_grant_link_id_invalid" }, 400);
+  }
+
+  const query = linkId
+    ? `SELECT DISTINCT g.id, g.subject_id, g.space_id, g.device_id, g.actions_json,
+              g.projects_json, g.expires_at, g.created_at, g.revoked_at
+       FROM ordax_product_grants g
+       JOIN ordax_product_device_links l
+         ON l.subject_id = g.subject_id
+        AND l.device_id = g.device_id
+        AND l.space_id = COALESCE(g.space_id, '')
+       JOIN ordax_devices d ON d.id = l.device_id
+       WHERE g.subject_id = ?1
+         AND l.id = ?2
+         AND l.revoked_at IS NULL
+         AND d.revoked_at IS NULL
+       ORDER BY g.created_at DESC`
+    : `SELECT DISTINCT g.id, g.subject_id, g.space_id, g.device_id, g.actions_json,
+              g.projects_json, g.expires_at, g.created_at, g.revoked_at
+       FROM ordax_product_grants g
+       JOIN ordax_product_device_links l
+         ON l.subject_id = g.subject_id
+        AND l.device_id = g.device_id
+        AND l.space_id = COALESCE(g.space_id, '')
+       JOIN ordax_devices d ON d.id = l.device_id
+       WHERE g.subject_id = ?1
+         AND l.revoked_at IS NULL
+         AND d.revoked_at IS NULL
+       ORDER BY g.created_at DESC`;
+  const statement = env.DB.prepare(query);
+  const result = linkId
+    ? await statement.bind(identity.subjectId, linkId).all<ProductGrantRow>()
+    : await statement.bind(identity.subjectId).all<ProductGrantRow>();
+  const grants = (result.results ?? [])
+    .filter(rowIsDeviceComputerGrant)
+    .map(publicGrant);
+  return json({ ok: true, grants });
 }
 
 /**

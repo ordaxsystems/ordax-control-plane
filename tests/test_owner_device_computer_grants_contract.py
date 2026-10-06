@@ -70,6 +70,17 @@ class OwnerDeviceComputerGrantContractTests(unittest.TestCase):
         self.assertNotIn("revokeOwnerDeviceComputerGrant", self.mcp)
         self.assertNotIn("full-computer-control", self.mcp)
 
+    def test_owner_can_list_grants_but_mcp_cannot_mint_or_revoke(self) -> None:
+        self.assertIn("listOwnerDeviceComputerGrants", self.handler)
+        self.assertIn("authenticateProductRequest(request, env)", self.handler)
+        self.assertIn('url.searchParams.get("link_id")', self.handler)
+        self.assertIn('return "custom-device-grant";', self.handler)
+        self.assertNotIn("listOwnerDeviceComputerGrants", self.mcp)
+
+    def test_create_response_preserves_requested_profile_mode(self) -> None:
+        self.assertIn("mode,\n      grant: publicGrant(existing)", self.handler)
+        self.assertIn("mode,\n    grant: publicGrant(created)", self.handler)
+
 
 if __name__ == "__main__":
     unittest.main()
