@@ -569,10 +569,17 @@ const OWNER_GRANT_HINT_BY_ACTION = new Map<string, OwnerGrantHint>([
 function authorizationHintForAction(action: string): JsonObject | null {
   const hint = OWNER_GRANT_HINT_BY_ACTION.get(action);
   if (!hint) return null;
+  const computerAlternative = action.startsWith("computer.")
+    ? {
+        alternative_owner_profile: "full-computer-control",
+        alternative_profile_requires_local_full_access: true,
+      }
+    : {};
   return {
     required_owner_profile: hint.profile,
     authorization_surface: hint.surface,
     authorization_required: true,
+    ...computerAlternative,
   };
 }
 
