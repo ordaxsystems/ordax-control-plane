@@ -16,6 +16,11 @@ class ProductReadonlyWorkerContractTests(unittest.TestCase):
         self.assertIn("authenticateProductRequest(request, env)", self.worker)
         self.assertIn("resolveProductGrantForContext", self.worker)
 
+    def test_app_intelligence_actions_are_read_only_product_actions(self):
+        self.assertIn('"intelligence.app_catalog"', self.worker)
+        self.assertIn('"intelligence.app_detail"', self.worker)
+        self.assertIn('"intelligence."', self.worker)
+
     def test_artifacts_list_is_in_product_read_only_worker_catalog(self):
         self.assertIn('"artifacts.list"', self.worker)
         self.assertNotIn('"artifact.read_chunk",\n]);\nconst PRODUCT_PROJECT_ACTIONS', self.worker)
