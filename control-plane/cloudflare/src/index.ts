@@ -5,6 +5,7 @@ import {
   type ProductAuthEnv,
 } from "./product_auth";
 import {
+  APP_INTELLIGENCE_DEVICE_ACTIONS,
   DEVICE_SCOPED_ACTIONS,
   PROJECT_BROWSER_ACTIONS,
   projectBindingMatchesScope,
@@ -19,6 +20,11 @@ import {
   listOwnerProjectGrants,
   revokeOwnerProjectGrant,
 } from "./product_project_grants";
+import {
+  createOwnerDeviceIntelligenceGrant,
+  listOwnerDeviceIntelligenceGrants,
+  revokeOwnerDeviceIntelligenceGrant,
+} from "./product_intelligence_grants";
 import { handleOrdaxMcp } from "./mcp_http";
 import { scopeProductResult } from "./product_results";
 import { oauthConsentResponse } from "./oauth_consent";
@@ -55,12 +61,13 @@ const CONTROL_PLANE_CAPABILITIES = [
 const ACTION_PREFIXES = [
   "blender.", "unity.", "git.", "project.", "projects.", "workspace.", "artifact.",
   "observation.", "game_assets.", "geo.", "visual.", "agent.", "terminal.", "handoff.", "continuity.",
-  "browser.", "computer.", "process.",
+  "browser.", "computer.", "process.", "intelligence.",
 ];
 
 const PRODUCT_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,199}$/;
 const PROJECT_SLUG_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/;
 const PRODUCT_READ_ONLY_ACTIONS = new Set([
+  ...APP_INTELLIGENCE_DEVICE_ACTIONS,
   "projects.list",
   "workspace.repository_catalog",
   "project.inventory",
@@ -2283,6 +2290,21 @@ export default {
     }
     if (request.method === "GET" && url.pathname === "/v3/product/session") {
       return productSession(request, env);
+    }
+    if (request.method === "POST" && url.pathname === "/v3/product/device-intelligence-grants") {
+      return createOwnerDeviceIntelligenceGrant(request, env);
+    }
+    if (request.method === "GET" && url.pathname === "/v3/product/device-intelligence-grants") {
+      return listOwnerDeviceIntelligenceGrants(request, env);
+    }
+    if (
+      request.method === "DELETE"
+      && parts[0] === "v3"
+      && parts[1] === "product"
+      && parts[2] === "device-intelligence-grants"
+      && parts.length === 4
+    ) {
+      return revokeOwnerDeviceIntelligenceGrant(request, env, parts[3]);
     }
     if (request.method === "POST" && url.pathname === "/v3/product/device-computer-grants") {
       return createOwnerDeviceComputerGrant(request, env);
