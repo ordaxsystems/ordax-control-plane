@@ -28,6 +28,8 @@ class McpOwnerGrantHintContractTests(unittest.TestCase):
         ):
             self.assertIn(mode, self.source)
         self.assertNotIn('required_owner_profile: "full-computer-control"', self.source)
+        self.assertIn('alternative_owner_profile: "full-computer-control"', self.source)
+        self.assertIn("alternative_profile_requires_local_full_access: true", self.source)
 
     def test_sensitive_actions_have_specific_profiles(self) -> None:
         self.assertIn('"computer.terminate_process", { profile: "computer-process-control"', self.source)
