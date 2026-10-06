@@ -48,13 +48,15 @@ const REPLACEMENTS = {
   },
 };
 
-const MCP_TOOL_SURFACE_REVISION = "2026-10-05.1";
+const MCP_TOOL_SURFACE_REVISION = "2026-10-06.2";
 
 const TOOLS: ToolSpec[] = [
   { name: "ordax_session", description: "Inspect whether the current ORDAX Product connection is authenticated." },
   { name: "ordax_profile", description: "Return the stable opaque profile id represented by the authenticated ORDAX credentials." },
   { name: "ordax_targets", description: "List ORDAX devices, Spaces and grants visible to the authenticated user." },
   { name: "ordax_action_status", description: "Read the status/result of a previously queued ORDAX action.", properties: { request_id: STRING }, required: ["request_id"] },
+  { name: "app_intelligence_catalog", description: "Read the compact version-bound application knowledge catalog from the connected ORDAX device. Use it only when app identity/capabilities are uncertain; it grants no execution authority.", action: "intelligence.app_catalog", properties: { device_id: DEVICE, space_id: SPACE, wait_for_completion_ms: WAIT }, required: ["device_id"] },
+  { name: "app_intelligence_detail", description: "Read declarative instructions, intents, parameters and examples for one exact ORDAX app id. This is knowledge only and does not grant permission to execute the app.", action: "intelligence.app_detail", properties: { device_id: DEVICE, space_id: SPACE, app_id: { type: "string", minLength: 1, maxLength: 128 }, wait_for_completion_ms: WAIT }, required: ["device_id", "app_id"] },
   { name: "repository_catalog", description: "List canonical repositories on an ORDAX device; use this to disambiguate a named project/repository before resuming work.", action: "workspace.repository_catalog", properties: { device_id: DEVICE, space_id: SPACE, wait_for_completion_ms: WAIT }, required: ["device_id"] },
   { name: "handoff_get", description: "Load an expiring ORDAX continuation handoff for a fresh client conversation.", action: "handoff.get", projectRequired: true, properties: { device_id: DEVICE, project: PROJECT, space_id: SPACE, handoff_id: STRING, wait_for_completion_ms: WAIT }, required: ["device_id", "project", "handoff_id"] },
   { name: "handoff_create", description: "Create an expiring continuation handoff so work can resume in a fresh client conversation.", action: "handoff.create", projectRequired: true, properties: { device_id: DEVICE, project: PROJECT, space_id: SPACE, summary: STRING, next_action: STRING, completed: { type: "array", items: STRING, maxItems: 100 }, blockers: { type: "array", items: STRING, maxItems: 100 }, changed_paths: { type: "array", items: STRING, maxItems: 100 }, ttl_hours: { type: "integer", minimum: 1, maximum: 168 }, wait_for_completion_ms: WAIT }, required: ["device_id", "project", "summary"] },
@@ -143,6 +145,8 @@ const READ_ONLY_TOOLS = new Set([
   "ordax_profile",
   "ordax_targets",
   "ordax_action_status",
+  "app_intelligence_catalog",
+  "app_intelligence_detail",
   "repository_catalog",
   "handoff_get",
   "project_inventory",
@@ -256,6 +260,8 @@ const TOOL_TITLES: Record<string, string> = {
   ordax_profile: "Identify connected ORDAX account",
   ordax_targets: "List connected ORDAX devices",
   ordax_action_status: "Check ORDAX action status",
+  app_intelligence_catalog: "Read application knowledge catalog",
+  app_intelligence_detail: "Read application knowledge detail",
   repository_catalog: "List device repositories",
   handoff_get: "Load continuation handoff",
   handoff_create: "Create continuation handoff",
@@ -509,8 +515,13 @@ type OwnerGrantHint = {
 
 const COMPUTER_GRANT_SURFACE = "ORDAX Studio > Acesso ao computador";
 const BROWSER_GRANT_SURFACE = "ORDAX Studio > Navegador gerenciado";
+const APP_INTELLIGENCE_GRANT_SURFACE = "ORDAX Studio > Inteligência dos apps";
 
 const OWNER_GRANT_HINT_BY_ACTION = new Map<string, OwnerGrantHint>([
+  ...[
+    "intelligence.app_catalog",
+    "intelligence.app_detail",
+  ].map((action) => [action, { profile: "app-intelligence-read", surface: APP_INTELLIGENCE_GRANT_SURFACE }] as const),
   ...[
     "computer.active_window",
     "computer.click",
