@@ -252,6 +252,17 @@
         "path": "control-plane/supabase/migrations/20261007190000_product_service_role_fail_closed.sql",
         "blob_sha": "7fe7a42f6bd8618afff9930691d7e163d43a3768"
       }
+    },
+    {
+      "name": "20261007191500_public_schema_usage_fail_closed",
+      "applied_version": "20261007203025",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007191500_public_schema_usage_fail_closed.sql",
+        "blob_sha": "c3516c9859ad23066eba78510fd52a022cab4ab6"
+      }
     }
   ]
 }

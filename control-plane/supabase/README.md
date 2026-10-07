@@ -138,6 +138,21 @@ environment LOGIN credential provisioned separately through secret management.
 The Auth bootstrap trigger remains owned by `postgres`; revoking
 `service_role` from `ordax_accounts` does not affect account-row bootstrap.
 
+## Custom roles and PUBLIC inheritance
+
+Custom PostgreSQL roles receive privileges granted to `PUBLIC` even when they
+have no explicit grant. The canonical database therefore removes `PUBLIC`
+USAGE/CREATE from the `public` schema. Data API roles and reviewed executors
+keep only their explicit schema grants.
+
+This prevents a future NOLOGIN executor from acquiring the exposed schema merely
+because the role was created. Schema USAGE, function EXECUTE and relation
+privileges must all be granted intentionally.
+
+Database-level `TEMPORARY` remains a separate platform-wide concern because it
+is also inherited from `PUBLIC`; it must not be changed casually without
+proving Supabase-managed service compatibility.
+
 ## Default privileges
 
 Future objects created by `postgres` in `public` and `private` are
