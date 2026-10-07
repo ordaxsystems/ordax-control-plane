@@ -14,6 +14,7 @@ POSTGRES_ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_post
 WORKER_SOURCE = ROOT / "control-plane" / "cloudflare" / "src" / "index.ts"
 CLOUDFLARE_SRC = ROOT / "control-plane" / "cloudflare" / "src"
 CLOUDFLARE_MIGRATIONS = ROOT / "control-plane" / "cloudflare" / "migrations"
+D1_CUTOVER_MAP = ROOT / "control-plane" / "cloudflare" / "d1-cutover-authority-map.json"
 
 OLD_ACCOUNT_ID = "ac1ca1b50d09c7a4cb81274d2aa1e78f"
 DEDICATED_ACCOUNT_ID = "42586bf13b61436219d21def299833e4"
@@ -119,7 +120,7 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         referenced_tables = set()
 
         table_pattern = re.compile(
-            r"\\b(?:from|join|into|update|table)\\s+(ordax_[a-z0-9_]+)",
+            r"\b(?:from|join|into|update|table)\s+(ordax_[a-z0-9_]+)",
             re.IGNORECASE,
         )
         for path in CLOUDFLARE_SRC.glob("*.ts"):
@@ -152,6 +153,47 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         if d1_sources or migrations:
             self.assertFalse(foundation["policy"]["allow_d1"])
             self.assertIn("worker_d1_cutover_incomplete", blockers)
+
+    def test_d1_cutover_map_classifies_every_legacy_table_once(self):
+        cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
+        source = WORKER_SOURCE.read_text(encoding="utf-8")
+        table_pattern = re.compile(
+            r"\b(?:from|join|into|update|table)\s+(ordax_[a-z0-9_]+)",
+            re.IGNORECASE,
+        )
+        referenced_tables = {match.lower() for match in table_pattern.findall(source)}
+
+        mapped_tables = []
+        for domain in cutover["domains"]:
+            mapped_tables.extend(domain["legacy_tables"])
+
+        self.assertEqual(len(mapped_tables), len(set(mapped_tables)))
+        self.assertEqual(set(mapped_tables), referenced_tables)
+        self.assertFalse(cutover["policy"]["allow_callsite_growth"])
+        self.assertFalse(cutover["policy"]["allow_schema_copy_1_to_1"])
+        self.assertFalse(cutover["policy"]["allow_dual_write"])
+        self.assertFalse(cutover["policy"]["durable_objects_as_business_persistence"])
+
+    def test_d1_callsite_count_can_only_shrink(self):
+        cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
+        source = WORKER_SOURCE.read_text(encoding="utf-8")
+        current_calls = source.count("env.DB")
+        self.assertLessEqual(current_calls, cutover["baseline_env_db_calls"])
+        if current_calls:
+            foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
+            self.assertIn(
+                "worker_d1_cutover_incomplete",
+                foundation["readiness_blockers"],
+            )
+
+    def test_d1_cutover_domains_are_explicit_about_authority_readiness(self):
+        cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
+        valid_states = {"available", "partial", "missing", "redesign_required", "retired"}
+        for domain in cutover["domains"]:
+            self.assertIn(domain["authority_state"], valid_states)
+            self.assertTrue(domain["cutover_strategy"])
+            if domain["authority_state"] == "available":
+                self.assertTrue(domain["target_contracts"])
 
     def test_product_auth_metadata_is_derived_from_canonical_project_ref(self):
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
