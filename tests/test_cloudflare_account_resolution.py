@@ -183,7 +183,7 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
     def test_legacy_operator_surface_is_frozen_until_authority_cutover(self):
         source = WORKER_SOURCE.read_text(encoding="utf-8")
         handler_pattern = re.compile(
-            r"(?:async\s+)?function\s+([A-Za-z0-9_]+)\s*\([^)]*\)\s*:\s*Promise<Response>\s*\{[\s\S]*?(?=\n(?:async\s+)?function\s+[A-Za-z0-9_]+\s*\(|\Z)"
+            r"(?:async\s+)?function\s+([A-Za-z0-9_]+)\s*\([^)]*\)[^{]*\{([\s\S]*?)(?=\n(?:async\s+)?function\s+[A-Za-z0-9_]+\s*\(|\Z)"
         )
         operator_handlers = {
             name
