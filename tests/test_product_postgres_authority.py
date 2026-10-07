@@ -7,6 +7,7 @@ HARDENING = ROOT / "control-plane" / "supabase" / "migrations" / "20261007152000
 REMOTE_ROLE_HARDENING = ROOT / "control-plane" / "supabase" / "migrations" / "20261007184000_product_remote_service_role_direct_access_revoke.sql"
 CAPABILITY_V2 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007184500_product_capability_contract_v2.sql"
 GRANT_GROUPS_V2 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007185000_product_grant_groups_v2.sql"
+PRODUCT_SERVICE_ROLE_FAIL_CLOSED = ROOT / "control-plane" / "supabase" / "migrations" / "20261007190000_product_service_role_fail_closed.sql"
 ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 
 
@@ -18,6 +19,7 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         cls.remote_role_hardening = REMOTE_ROLE_HARDENING.read_text(encoding="utf-8")
         cls.capability_v2 = CAPABILITY_V2.read_text(encoding="utf-8")
         cls.grant_groups_v2 = GRANT_GROUPS_V2.read_text(encoding="utf-8")
+        cls.product_service_role_fail_closed = PRODUCT_SERVICE_ROLE_FAIL_CLOSED.read_text(encoding="utf-8")
         cls.adapter = ADAPTER.read_text(encoding="utf-8")
 
     def test_device_scope_never_requires_synthetic_project(self) -> None:
@@ -192,6 +194,31 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         self.assertIn("pg_catalog.statement_timestamp()", lowered)
         self.assertIn("'grant_groups'", lowered)
         self.assertIn("'capabilities'", lowered)
+
+    def test_generic_service_role_has_no_product_table_authority(self) -> None:
+        lowered = self.product_service_role_fail_closed.lower()
+        for table in (
+            "ordax_accounts",
+            "ordax_spaces",
+            "ordax_space_members",
+            "ordax_entitlement_grants",
+            "ordax_profile_packs",
+            "ordax_space_profile_packs",
+            "ordax_memory_items",
+            "ordax_memory_embeddings",
+            "ordax_project_connections",
+            "ordax_projects",
+            "ordax_product_devices",
+            "ordax_device_presence",
+            "ordax_space_devices",
+            "ordax_device_project_bindings",
+            "ordax_remote_capability_grants",
+        ):
+            self.assertIn(
+                f"revoke all on table public.{table} from service_role",
+                lowered,
+            )
+        self.assertNotIn("grant ", lowered)
 
 
 if __name__ == "__main__":
