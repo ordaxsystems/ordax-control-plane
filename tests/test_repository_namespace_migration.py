@@ -18,7 +18,7 @@ class RepositoryNamespaceMigrationTests(unittest.TestCase):
         )
         self.assertEqual(
             self.contract["status"],
-            "owner-transfer-complete-validation-pending",
+            "owner-cutover-complete-deploy-environment-proof-pending",
         )
         self.assertEqual(self.contract["repository_id"], "1406415892")
         self.assertEqual(
@@ -61,12 +61,16 @@ class RepositoryNamespaceMigrationTests(unittest.TestCase):
         completed = set(self.contract["completed_requirements"])
         pending = set(self.contract["pending_requirements"])
         self.assertIn("repository-transfer-complete", completed)
-        self.assertIn("control-plane-ci-green-after-transfer", pending)
-        self.assertIn(
-            "github-environments-and-deploy-credentials-revalidated",
+        self.assertIn("control-plane-ci-green-after-transfer", completed)
+        self.assertIn("consumer-references-repointed", completed)
+        self.assertEqual(
             pending,
+            {"github-environments-and-deploy-credentials-revalidated"},
         )
-        self.assertIn("consumer-references-repointed", pending)
+        evidence = self.contract["validation_evidence"]
+        self.assertEqual(evidence["control_plane_ci"], "PASS")
+        self.assertEqual(evidence["deploy_foundation"], "PASS")
+        self.assertEqual(evidence["deploy_job"], "SKIPPED_FAIL_CLOSED")
 
 
 if __name__ == "__main__":
