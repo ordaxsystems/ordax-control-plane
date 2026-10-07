@@ -395,3 +395,58 @@ export async function importLegacyProductDevice(
     p_last_seen_at: input.lastSeenAt,
   });
 }
+
+export async function replaceRemoteGrantGroup(
+  env: ProductPostgresEnv,
+  input: {
+    ownerUserId: string;
+    spaceId: string | null;
+    projectId: string | null;
+    deviceId: string;
+    clientKind: "ordax-web" | "ordax-mobile" | "product-mcp";
+    clientId: string | null;
+    profileKey: string;
+    capabilities: string[];
+    accessModes: Array<"read" | "write">;
+    validUntil: string | null;
+  },
+): Promise<JsonObject> {
+  return callRpc<JsonObject>(env, "ordax_replace_remote_grant_group_v1", {
+    p_owner_user_id: input.ownerUserId,
+    p_space_id: input.spaceId,
+    p_project_id: input.projectId,
+    p_device_id: input.deviceId,
+    p_client_kind: input.clientKind,
+    p_client_id: input.clientId,
+    p_profile_key: input.profileKey,
+    p_capabilities: input.capabilities,
+    p_access_modes: input.accessModes,
+    p_valid_until: input.validUntil,
+  });
+}
+
+export async function revokeRemoteGrantGroup(
+  env: ProductPostgresEnv,
+  ownerUserId: string,
+  grantGroupId: string,
+): Promise<JsonObject> {
+  return callRpc<JsonObject>(env, "ordax_revoke_remote_grant_group_v1", {
+    p_owner_user_id: ownerUserId,
+    p_grant_group_id: grantGroupId,
+  });
+}
+
+export async function listProductTargets(
+  env: ProductPostgresEnv,
+  input: {
+    ownerUserId: string;
+    clientKind: "ordax-web" | "ordax-mobile" | "product-mcp";
+    clientId: string | null;
+  },
+): Promise<JsonObject> {
+  return callRpc<JsonObject>(env, "ordax_list_product_targets_v1", {
+    p_owner_user_id: input.ownerUserId,
+    p_client_kind: input.clientKind,
+    p_client_id: input.clientId,
+  });
+}
