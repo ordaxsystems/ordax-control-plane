@@ -1,6 +1,6 @@
 {
   "$schema": "ordax-control-plane.repository-migration/1",
-  "status": "cutover-complete",
+  "status": "owner-transfer-complete-validation-pending",
   "repository_id": "1406415892",
   "repository_name_changes_during_transfer": false,
   "redirect_dependency_allowed": false,
@@ -30,5 +30,10 @@
     "control-plane-ci-green-after-transfer",
     "github-environments-and-deploy-credentials-revalidated",
     "consumer-references-repointed"
-  ]
+  ],
+  "transfer_observed": {
+    "repository_id": "1406415892",
+    "owner": "ordaxsystems",
+    "repository": "ordax-control-plane"
+  }
 }
