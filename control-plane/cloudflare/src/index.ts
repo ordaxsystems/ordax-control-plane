@@ -30,8 +30,9 @@ import { scopeProductResult } from "./product_results";
 import { oauthConsentResponse } from "./oauth_consent";
 import { openAiAppsChallenge, publicProductPage } from "./public_pages";
 import { runProductRetention } from "./retention";
+import { productPostgresConfigured, type ProductPostgresEnv } from "./product_postgres_store";
 
-interface Env extends ProductAuthEnv {
+interface Env extends ProductAuthEnv, ProductPostgresEnv {
   DB: D1Database;
   ARTIFACTS: R2Bucket;
   DEVICE_SESSIONS: DurableObjectNamespace<DeviceSession>;
@@ -2222,6 +2223,7 @@ export default {
         service: "ordax-control-plane-v3",
         capabilities: CONTROL_PLANE_CAPABILITIES,
         product_auth_configured: productAuthConfigured(env),
+        product_postgres_configured: productPostgresConfigured(env),
       });
     }
 
