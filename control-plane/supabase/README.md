@@ -1,8 +1,17 @@
 # PostgreSQL product remote authority
 
 This directory owns the PostgreSQL migrations for the end-user ORDAX remote
-authority. The canonical database is the existing Supabase project
-`ordax-control-plane`.
+authority.
+
+The canonical persistent database is:
+
+- Supabase project: `ordax-platform-prod`
+- project ref: `jhfphsjptrpmtnzkpwud`
+- region: `sa-east-1` (São Paulo)
+- PostgreSQL: durable source of truth
+
+The previous Supabase project named `ordax-control-plane` is not the canonical
+production database for this authority.
 
 ## Architecture
 
@@ -10,38 +19,57 @@ authority. The canonical database is the existing Supabase project
 ChatGPT / ORDAX Web / Mobile
             |
             v
-    Cloudflare Worker
+     remote edge/API
             |
      +------+------+
      |             |
      v             v
-Durable Objects  Supabase/PostgreSQL
-hot WebSocket    durable source of truth
-session state    grants / actions / receipts / audit
-     |
-     v
-ORDAX Runtime
-
-R2 remains the byte store for large artifacts.
+realtime/session  Supabase/PostgreSQL
+coordination      durable source of truth
+                  grants / actions / receipts / audit
+                         |
+                         v
+                   ORDAX Runtime
 ```
 
-Cloudflare is the edge and realtime transport. PostgreSQL is the durable source
-of truth for Product identity-linked remote authorization and action state.
+PostgreSQL is the durable authority. Edge/realtime infrastructure may transport
+requests or coordinate live sessions, but it must not become a second persistent
+authority.
 
-This split is deliberate: moving the Worker, Durable Objects and R2 to another
-Cloudflare account must not require moving the canonical ORDAX product database.
+Large binary artifacts belong in an object store, not in PostgreSQL.
+
+## Migration SSOT and provenance
+
+Applied migrations are immutable history. Never edit an applied migration, never
+reapply it manually, and never create a second migration with equivalent effects.
+
+The clean product bootstrap migrations `0001_product_foundation` through
+`0007_projects_devices_fk_indexes` were originally versioned in
+`washingtonmsdj/prototipo-ordax-os/infra/supabase/product/migrations/`. They
+remain historical source provenance and are not copied into this directory.
+
+From `20261007150000_product_remote_authority_v1.sql` onward, this directory is
+the canonical source owner for Control Plane PostgreSQL authority and hardening.
+New PostgreSQL changes in this domain must be introduced here first through a
+branch and pull request, then applied once to the canonical project.
+
+The files
+`20261007181500_edge_runtime_role.sql` and
+`20261007182000_remove_unprovisioned_edge_login.sql` preserve exact migration
+history already executed on the canonical project. Their final effect is
+intentional: there is no environment LOGIN role provisioned in the database.
+Runtime credentials are environment-specific and must never be committed.
 
 ## No dual-primary fallback
 
-D1 and PostgreSQL must never both accept authoritative Product mutations. During
-migration, D1 remains the live legacy authority until an explicit one-way cutover
-is proven. Shadow reads are allowed only for verification; dual writes and
-automatic D1/PostgreSQL failover are forbidden because they can create split
-brain in grants, leases and terminal reports.
+D1 and PostgreSQL must never both accept authoritative Product mutations.
+PostgreSQL is the target durable SSOT. Dual writes and automatic persistent
+fallback are forbidden because they can create split brain in grants, leases,
+receipts and audit.
 
 ## Product vs engineering authority
 
-Product remote execution is intentionally separate from the engineering queue.
+Product remote execution is intentionally separate from engineering authority.
 Product Web/Mobile/MCP credentials never inherit developer/operator authority.
 
 Canonical Product rows use:
@@ -50,7 +78,7 @@ Canonical Product rows use:
 - `public.ordax_space_devices`;
 - `public.ordax_device_project_bindings`;
 - `public.ordax_remote_capability_grants`;
-- private Product action/event/audit tables introduced by the migration in this
+- private Product action/event/audit tables introduced by the migrations in this
   directory.
 
 Device-scoped grants use `scope_kind = 'device'` with no synthetic project.
@@ -59,21 +87,33 @@ binding.
 
 ## Server-only database access
 
-Cloudflare calls reviewed PostgreSQL RPCs through Supabase's Data API. The Worker
-uses a dedicated modern `sb_secret_...` key in the `apikey` header only.
+The database exposes reviewed server-side RPCs through the NOLOGIN group role
+`ordax_edge_executor`. That role has no direct table/sequence authority and no
+access to the `private` schema. It receives only explicit EXECUTE grants on the
+required RPCs.
 
-The secret is never committed, returned to a Product client, used as a
-browser/desktop credential or placed in a bearer authorization header. It should
-be a dedicated key for the Control Plane so it can be rotated independently when
-Cloudflare infrastructure moves accounts.
+`service_role` is not the executor for these remote-action RPCs. A future
+environment LOGIN credential may inherit `ordax_edge_executor` only when it is
+provisioned outside migrations with dedicated secret management. No such LOGIN
+role is part of the canonical database baseline.
 
 Private Product action tables grant no direct access to browser roles or to the
-server role. Server authority enters only through narrowly reviewed
-`SECURITY DEFINER` RPCs.
+edge executor. Server authority enters only through narrowly reviewed
+`SECURITY DEFINER` RPCs with pinned `search_path`.
+
+## Default privileges
+
+Future objects created by `postgres` in `public` and `private` are
+fail-closed. Default table/sequence access for API roles is revoked, and new
+functions do not inherit EXECUTE through `PUBLIC` or server/runtime roles.
+
+Any intentional Data API or server exposure must therefore be granted explicitly
+in the same versioned migration that creates or changes the object. RLS and SQL
+privileges are separate controls; both must remain correct.
 
 ## Presence and scale
 
-Durable Objects own hot connection state. Ordinary WebSocket heartbeats must not
+Realtime coordination owns hot connection state. Ordinary heartbeats must not
 write PostgreSQL every few seconds.
 
 The persistence RPC coalesces unchanged presence and writes at most periodically
@@ -82,15 +122,15 @@ digest changes. Connect/disconnect transitions may force an immediate write.
 
 ## Cutover gates
 
-D1 can stop being the Product authority only after all of these are proven:
+A persistent predecessor can stop being authoritative only after all of these are
+proven:
 
-1. PostgreSQL migration is applied and security/performance advisors are reviewed.
-2. Worker uses the server-only PostgreSQL adapter for Product targets, grants and action lifecycle.
-3. Existing live device identity/pairing is migrated without synthetic IDs.
-4. Durable Object delivery uses PostgreSQL leases/fencing and terminal replay.
-5. Shadow comparison shows equivalent authorization decisions.
-6. ChatGPT -> Product MCP -> Worker -> Runtime -> receipt/audit passes end to end.
-7. D1 Product writes are disabled before PostgreSQL Product writes become authoritative.
-
-The Cloudflare-account move is a later infrastructure operation and must not be
-combined with the database-authority cutover.
+1. PostgreSQL migrations are applied exactly once and security/performance
+   advisors are reviewed.
+2. Runtime/edge access uses the dedicated least-privilege PostgreSQL boundary.
+3. Existing required device identity is migrated without synthetic IDs.
+4. Delivery uses PostgreSQL leases/fencing and terminal replay.
+5. Shadow verification, when used, is read-only and never becomes dual-write.
+6. Product MCP -> remote boundary -> Runtime -> receipt/audit passes end to end.
+7. Legacy Product writes are disabled before PostgreSQL Product writes become
+   authoritative.
