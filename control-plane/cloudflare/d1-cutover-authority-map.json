@@ -1,0 +1,93 @@
+{
+  "version": 1,
+  "source": "control-plane/cloudflare/src/index.ts",
+  "legacy_binding": "DB",
+  "baseline_env_db_calls": 75,
+  "tracking_issue": 42,
+  "policy": {
+    "allow_callsite_growth": false,
+    "allow_schema_copy_1_to_1": false,
+    "allow_dual_write": false,
+    "durable_objects_as_business_persistence": false
+  },
+  "domains": [
+    {
+      "id": "product_remote_authority",
+      "legacy_tables": [
+        "ordax_product_grants",
+        "ordax_product_audit",
+        "ordax_product_action_requests"
+      ],
+      "target_authority": "postgresql",
+      "authority_state": "available",
+      "cutover_strategy": "replace_d1_calls_with_hyperdrive_rpc_boundary",
+      "target_contracts": [
+        "public.ordax_remote_capability_grants",
+        "private.ordax_product_action_requests",
+        "private.ordax_product_action_events",
+        "private.ordax_product_action_audit",
+        "ordax_edge_executor"
+      ]
+    },
+    {
+      "id": "product_pairing_and_links",
+      "legacy_tables": [
+        "ordax_product_device_pairings",
+        "ordax_product_device_links"
+      ],
+      "target_authority": "postgresql",
+      "authority_state": "redesign_required",
+      "cutover_strategy": "retire_legacy_pairing_link_model_and_reuse_canonical_product_identity_bindings",
+      "target_contracts": [
+        "public.ordax_product_devices",
+        "private.ordax_product_device_credentials",
+        "public.ordax_space_devices",
+        "public.ordax_device_project_bindings"
+      ]
+    },
+    {
+      "id": "shared_device_registry",
+      "legacy_tables": [
+        "ordax_devices"
+      ],
+      "target_authority": "postgresql",
+      "authority_state": "partial",
+      "cutover_strategy": "split_product_identity_from_engineering_runtime_identity_before_removing_d1",
+      "target_contracts": [
+        "public.ordax_product_devices",
+        "public.ordax_device_presence",
+        "private.ordax_product_device_credentials"
+      ]
+    },
+    {
+      "id": "engineering_runtime_jobs",
+      "legacy_tables": [
+        "ordax_jobs",
+        "ordax_job_events"
+      ],
+      "target_authority": "postgresql",
+      "authority_state": "missing",
+      "cutover_strategy": "define_dedicated_engineering_runtime_authority_or_deprecate_legacy_queue",
+      "target_contracts": []
+    },
+    {
+      "id": "artifact_metadata",
+      "legacy_tables": [
+        "ordax_artifacts",
+        "ordax_artifact_uploads"
+      ],
+      "target_authority": "postgresql_plus_r2",
+      "authority_state": "missing",
+      "cutover_strategy": "store_bytes_in_r2_and_persistent_metadata_in_postgresql",
+      "target_contracts": []
+    }
+  ],
+  "exit_criteria": [
+    "all_domains_authority_state_available_or_retired",
+    "env_db_calls_equal_zero",
+    "d1_binding_removed_from_wrangler",
+    "no_dual_write",
+    "hyperdrive_adapter_live",
+    "tests_green"
+  ]
+}
