@@ -29,7 +29,9 @@ O D1 atual está congelado:
 
 O guard dessa regra roda em `tests/test_cloudflare_account_resolution.py`.
 
-A auditoria de cutover encontrou 10 tabelas D1 legadas. Product devices/grants/action queue/audit já possuem authorities PostgreSQL canônicas. Artifact metadata/multipart e a queue genérica de engenharia ainda dependem do contrato acompanhado em **#42**. Não criar tabelas PostgreSQL apenas para reproduzir o schema D1 1:1.
+O mapa canônico da remoção está em `d1-cutover-authority-map.json`. Ele agrupa o legado por domínio de authority, não por cópia de schema, e fixa o baseline atual de 75 call-sites `env.DB`. A CI permite apenas redução desse número e exige que toda tabela D1 referenciada esteja classificada exatamente uma vez.
+
+A auditoria de cutover encontrou 10 tabelas D1 legadas. Product grants/action queue/audit já possuem authorities PostgreSQL canônicas. Product pairing/link exige redesenho sobre identity/bindings canônicos; o registry de device é parcialmente coberto e ainda precisa separar Product de engineering/runtime. Artifact metadata/multipart e a queue genérica de engenharia continuam dependentes do contrato acompanhado em **#42**. Não criar tabelas PostgreSQL apenas para reproduzir o schema D1 1:1.
 
 ## Product PostgreSQL
 
