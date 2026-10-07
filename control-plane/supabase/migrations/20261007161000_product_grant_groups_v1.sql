@@ -82,9 +82,7 @@ begin
 
   if exists (
     select 1 from unnest(p_capabilities) item
-    where item is null
-       or char_length(item) not between 2 and 120
-       or item !~ '^[a-z][a-z0-9.-]+$'
+    where not private.ordax_product_capability_name_valid(item)
   ) or exists (
     select 1 from unnest(p_access_modes) item
     where item is null or item not in ('read','write')
