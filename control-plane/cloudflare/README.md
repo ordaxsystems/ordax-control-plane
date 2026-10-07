@@ -113,6 +113,12 @@ O workflow `Deploy ORDAX Control Plane`:
 
 O deploy rotineiro **não provisiona infraestrutura**.
 
+Como o Worker ainda não existe, o bootstrap e o CI permanente são autoridades distintas:
+
+- criação inicial do Worker: autoridade **Workers Product Admin temporária**, removida após o bootstrap;
+- deploys posteriores: **Editor somente no Worker existente**;
+- o token rotineiro não recebe Zone/Routes, D1, R2 ou Hyperdrive direct access apenas para publicar bindings.
+
 ### Scripts
 
 - `scripts/cloudflare/deploy-production-v3.sh`: deploy rotineiro do Worker já pronto.
@@ -149,11 +155,13 @@ O blocker atual é a dependência `catalogo-media`, que pertence a Catálogo/Ach
 A lista executável está somente em `production-foundation.json`. No estado atual ela inclui:
 
 - R2 ainda não habilitado;
+- bucket R2 canônico ainda não provisionado;
 - Hyperdrive ainda não provisionado;
 - runtime LOGIN PostgreSQL ainda não provisionado;
 - adapter Worker -> Hyperdrive ainda não implementado;
 - cutover D1 ainda incompleto;
-- token CI dedicado ainda não rotacionado/provisionado;
+- Worker de produção ainda não provisionado;
+- token CI permanente Worker-scoped ainda não provisionado;
 - 2FA do account ainda não habilitado.
 
 Não remover blocker por expectativa. Cada blocker só sai depois de evidência live + source/CI coerentes.
@@ -174,11 +182,13 @@ A ordem correta é:
 2. provisionar LOGIN runtime least-privilege;
 3. provisionar Hyperdrive;
 4. substituir os adapters D1/REST pelo caminho Hyperdrive/PostgreSQL;
-5. habilitar/provisionar R2 e migrar somente artifacts necessários, com integridade;
-6. remover D1 do `wrangler.toml` e do runtime;
-7. provisionar token CI dedicado e validar deploy/E2E;
-8. habilitar 2FA e enforcement de account;
-9. resolver a dependência DNS de Catálogo;
-10. somente depois executar cutover de `ordax.com.br`.
+5. habilitar R2 e provisionar o bucket canônico;
+6. migrar somente artifacts necessários, com integridade;
+7. remover D1 do `wrangler.toml` e do runtime;
+8. criar o primeiro Worker com autoridade temporária de bootstrap;
+9. substituir a autoridade de bootstrap por token CI Editor somente naquele Worker e validar deploy/E2E;
+10. habilitar 2FA e enforcement de account;
+11. resolver a dependência DNS de Catálogo;
+12. somente depois executar cutover de `ordax.com.br`.
 
 Sem delete antecipado na origem e sem paliativos para atravessar gates.
