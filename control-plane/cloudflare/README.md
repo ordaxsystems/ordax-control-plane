@@ -39,7 +39,7 @@ O destino correto é:
 
 `Worker -> Hyperdrive -> PostgreSQL`
 
-O runtime PostgreSQL deve usar uma credencial LOGIN dedicada e least-privilege associada ao boundary `ordax_edge_executor`.
+O runtime PostgreSQL usa a credencial LOGIN dedicada `ordax_edge_runtime`, que herda somente o boundary NOLOGIN `ordax_edge_executor`. O Hyperdrive canônico está provisionado com cache desabilitado, TLS `require` e limite de 10 conexões de origem.
 
 O arquivo `src/product_postgres_store.ts` ainda representa o adaptador REST legado com backend secret. Ele **não é o destino de produção** e o foundation mantém `worker_hyperdrive_adapter_not_implemented` como blocker enquanto esse código existir.
 
@@ -176,8 +176,6 @@ O blocker atual é a dependência `catalogo-media`, que pertence a Catálogo/Ach
 
 A lista executável está somente em `production-foundation.json`. No estado atual ela inclui:
 
-- Hyperdrive ainda não provisionado;
-- runtime LOGIN PostgreSQL ainda não provisionado;
 - adapter Worker -> Hyperdrive ainda não implementado;
 - cutover D1 ainda incompleto;
 - autenticação operacional legada por `ORDAX_OPERATOR_TOKEN` ainda não removida/substituída;
@@ -200,7 +198,7 @@ A ordem correta é:
 
 1. fechar authorities PostgreSQL faltantes;
 2. provisionar LOGIN runtime least-privilege;
-3. provisionar Hyperdrive;
+3. provisionar Hyperdrive — concluído;
 4. substituir os adapters D1/REST pelo caminho Hyperdrive/PostgreSQL;
 5. habilitar R2 e provisionar o bucket canônico;
 6. migrar somente artifacts necessários, com integridade;
@@ -208,7 +206,7 @@ A ordem correta é:
 8. remover/substituir `ORDAX_OPERATOR_TOKEN` por authorities explícitas;
 9. criar o primeiro Worker com autoridade temporária de bootstrap;
 10. substituir a autoridade de bootstrap por token CI Editor somente naquele Worker e validar deploy/E2E;
-11. habilitar 2FA e enforcement de account;
+11. habilitar 2FA e enforcement de account — 2FA do membro concluído; enforcement account-level permanece separado;
 12. resolver a dependência DNS de Catálogo;
 13. somente depois executar cutover de `ordax.com.br`.
 

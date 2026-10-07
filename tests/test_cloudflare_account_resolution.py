@@ -101,6 +101,13 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertEqual(foundation["r2_bucket"], "ordax-device-artifacts")
         self.assertNotIn("cloudflare_r2_not_enabled", blockers)
         self.assertNotIn("postgres_runtime_login_not_provisioned", blockers)
+        self.assertNotIn("hyperdrive_not_provisioned", blockers)
+        hyperdrive = foundation["live_evidence"]["hyperdrive"]
+        self.assertEqual(hyperdrive["name"], foundation["hyperdrive_name"])
+        self.assertEqual(hyperdrive["runtime_role"], foundation["postgres"]["runtime_role"])
+        self.assertEqual(hyperdrive["origin_connection_limit"], 10)
+        self.assertTrue(hyperdrive["query_cache_disabled"])
+        self.assertEqual(hyperdrive["sslmode"], "require")
         runtime = foundation["live_evidence"]["postgres_runtime"]
         self.assertTrue(runtime["login"])
         self.assertTrue(runtime["has_password"])

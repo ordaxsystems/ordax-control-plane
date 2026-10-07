@@ -1,5 +1,5 @@
 {
-  "version": 9,
+  "version": 10,
   "account_id": "42586bf13b61436219d21def299833e4",
   "worker_name": "ordax-control-plane-v3",
   "r2_bucket": "ordax-device-artifacts",
@@ -39,7 +39,6 @@
   },
   "deployment_ready": false,
   "readiness_blockers": [
-    "hyperdrive_not_provisioned",
     "worker_hyperdrive_adapter_not_implemented",
     "worker_d1_cutover_incomplete",
     "worker_operator_auth_cutover_incomplete",
@@ -89,6 +88,18 @@
       "migration": "20261007200000_edge_runtime_login_v1",
       "applied_version": "20261007230346",
       "observed_at": "2026-10-07"
+    },
+    "hyperdrive": {
+      "id": "4b601ec5815f43259bd8040053825d2a",
+      "name": "ordax-control-plane-postgres",
+      "origin_host": "db.jhfphsjptrpmtnzkpwud.supabase.co",
+      "origin_port": 5432,
+      "database": "postgres",
+      "runtime_role": "ordax_edge_runtime",
+      "origin_connection_limit": 10,
+      "query_cache_disabled": true,
+      "sslmode": "require",
+      "observed_at": "2026-10-07T23:30:08.791391Z"
     }
   }
 }
