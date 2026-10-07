@@ -1,184 +1,184 @@
-# OrdaX Control Plane v3 — Cloudflare
+# OrdaX Control Plane — Cloudflare
 
-Este diretório contém o Control Plane remoto de produção do OrdaX Device Agent.
+Este diretório contém a camada Cloudflare do Control Plane remoto do OrdaX.
 
-## Runtime
+A autoridade arquitetural de produção está em `production-foundation.json`. Este README explica o contrato; quando houver divergência, o arquivo de foundation e os testes associados prevalecem.
 
-- **Worker**: autenticação de dispositivo, API administrativa e gateway HTTP de artifacts.
-- **Durable Object por dispositivo**: WebSocket persistente, entrega serializada de jobs,
-  leases, progresso e terminal reports.
-- **D1**: dispositivos, jobs, eventos, metadados de artifacts e contratos persistidos de Product grants/auditoria.
-- **R2**: bytes de screenshots, snapshots e exports.
+## Arquitetura canônica de produção
 
-O `ActionRegistry` local continua sendo a autoridade final. O backend não
-adiciona shell remoto genérico.
+- **Cloudflare Worker**: edge/API boundary, autenticação de requests, gateway HTTP, WebSocket handoff e integração com os serviços do Control Plane.
+- **PostgreSQL / Supabase**: SSOT persistente. O projeto canônico é `ordax-platform-prod` / `jhfphsjptrpmtnzkpwud` em `sa-east-1`.
+- **Hyperdrive**: transporte canônico do Worker para PostgreSQL, com binding futuro `POSTGRES`.
+- **R2**: bytes de artifacts/binários. R2 não é SSOT de metadata.
+- **Durable Objects**: coordenação realtime/sessão. DO storage não substitui persistência de negócio.
+- **D1**: legado temporário do Worker atual, proibido na arquitetura de destino.
 
-## Provisionamento
+Não existe dual-write permitido entre D1 e PostgreSQL.
 
-O setup oficial do Windows usa:
+## Estado da transição
 
-`scripts/windows/ordax-device-agent-setup.ps1`
+A fundação de produção está deliberadamente **fail-closed**. `deployment_ready=false` permanece enquanto houver blockers em `production-foundation.json`.
 
-A credencial é gerada localmente em:
+O D1 atual está congelado:
 
-`%LOCALAPPDATA%\OrdaX\DevAgent\device-token.cloudflare-v3.txt`
+- nenhuma tabela D1 nova;
+- nenhuma migration D1 nova;
+- nenhum novo módulo pode introduzir D1;
+- remoções são permitidas e esperadas;
+- o binding D1 só pode desaparecer depois que todos os call-sites tiverem authority PostgreSQL canônica.
 
-Somente o SHA-256 é enviado ao Worker.
+O guard dessa regra roda em `tests/test_cloudflare_account_resolution.py`.
 
-`agent-settings.json` mantém `control_plane_protocol`, `control_plane_url`
-e `device_id`.
+A auditoria de cutover encontrou 10 tabelas D1 legadas. Product devices/grants/action queue/audit já possuem authorities PostgreSQL canônicas. Artifact metadata/multipart e a queue genérica de engenharia ainda dependem do contrato acompanhado em **#42**. Não criar tabelas PostgreSQL apenas para reproduzir o schema D1 1:1.
+
+## Product PostgreSQL
+
+O destino correto é:
+
+`Worker -> Hyperdrive -> PostgreSQL`
+
+O runtime PostgreSQL deve usar uma credencial LOGIN dedicada e least-privilege associada ao boundary `ordax_edge_executor`.
+
+O arquivo `src/product_postgres_store.ts` ainda representa o adaptador REST legado com backend secret. Ele **não é o destino de produção** e o foundation mantém `worker_hyperdrive_adapter_not_implemented` como blocker enquanto esse código existir.
+
+São proibidos no runtime Worker de produção:
+
+- `SUPABASE_SERVER_KEY`;
+- `SUPABASE_SERVICE_ROLE_KEY`;
+- `service_role` genérico como application authority.
+
+O cache do Hyperdrive permanece desabilitado para authority paths como autenticação, grants, jobs e operações com read-after-write.
+
+## Product Auth
+
+A verificação de JWT usa metadata pública do projeto Supabase Brasil:
+
+- issuer: `https://jhfphsjptrpmtnzkpwud.supabase.co/auth/v1`;
+- audience: `authenticated`;
+- JWKS: `https://jhfphsjptrpmtnzkpwud.supabase.co/auth/v1/.well-known/jwks.json`.
+
+Esses valores são metadata pública, não secrets. Os testes derivam issuer e JWKS do `postgres.project_ref` do foundation para evitar drift entre Cloudflare e o projeto PostgreSQL canônico.
+
+## workers.dev
+
+O subdomínio account-level canônico foi inicializado como:
+
+`ordaxsystems.workers.dev`
+
+Nenhum Worker foi criado como efeito desse bootstrap. O Worker de produção, quando autorizado pelo gate, ficará no hostname derivado de `worker_name` + esse subdomínio.
+
+O deploy rotineiro resolve o subdomínio ao vivo; não existe fallback para hostname/account legado.
+
+## R2 e artifacts
+
+O bucket canônico é definido pelo foundation como `ordax-device-artifacts`.
+
+Estado atual da conta dedicada: R2 ainda precisa ser habilitado administrativamente pelo Dashboard. A API retorna `10042: Please enable R2 through the Cloudflare Dashboard` e o OpenAPI atual não oferece operação de ativação da conta R2.
+
+Depois de habilitado:
+
+1. criar somente o bucket canônico;
+2. manter bytes no R2;
+3. manter metadata persistente no PostgreSQL;
+4. não usar D1 ou Durable Objects como novo SSOT de artifacts.
+
+O fluxo legado de metadata/multipart ainda depende de D1 e será removido no cutover, não duplicado.
+
+## Durable Objects
+
+Existem duas classes no runtime atual:
+
+- `DeviceSession`;
+- `EnrollmentSession`.
+
+O destino mantém Durable Objects somente para coordenação de sessão/realtime. Estado de negócio durável deve estar no PostgreSQL; artifacts ficam no R2.
 
 ## Deploy
 
-O workflow **Deploy Cloudflare v3 Control Plane** cria/localiza os recursos,
-aplica migrations, publica o Worker, valida `/health` e executa o E2E remoto.
+### CI
 
-Configuração:
+O workflow `ORDAX Control Plane CI` valida source, contratos e bundle do Worker.
 
-- `wrangler.toml`: configuração de produção.
-- `wrangler.ci.toml`: configuração isolada para CI/local.
-- `migrations/`: schema D1.
-- `src/index.ts`: Worker e Durable Objects.
+### Produção
 
-## Artifact integrity
+O workflow `Deploy ORDAX Control Plane`:
 
-Uploads de até 90 MiB são enviados diretamente ao R2 com SHA-256 fornecido pelo
-Agent como checksum nativo. O backend registra tamanho e digest em D1 e só
-publica o artifact depois de validar a integridade.
+1. faz checkout do SHA exato que passou na CI;
+2. valida `production-foundation.json`;
+3. só executa o job de deploy quando `deployment_ready=true` e não existem blockers;
+4. usa o account id vindo do foundation, sem segunda fonte de verdade;
+5. exige `CLOUDFLARE_API_TOKEN` no environment GitHub `cloudflare-v3`;
+6. chama `scripts/cloudflare/deploy-production-v3.sh`;
+7. executa smoke público depois do deploy.
 
-Arquivos maiores usam multipart R2 com sessão idempotente em D1. Cada parte é
-autenticada e verificada por SHA-256 no Worker; na conclusão o objeto inteiro é
-relido como stream e validado por SHA-256 antes da publicação. O Agent usa partes
-de 64 MiB e até 10.000 partes, mantendo cada request abaixo do limite do Worker.
-Uploads multipart abandonados são descartados pelo lifecycle do R2 e as sessões
-D1 antigas são limpas antes de novos uploads.
+O deploy rotineiro **não provisiona infraestrutura**.
 
-O endpoint `/health` publica capacidades explícitas. O Agent só ativa multipart
-quando o Worker anuncia `artifact_multipart_v1`; contra um Worker anterior ele
-mantém artifacts grandes localmente em vez de tentar uma API incompatível. Isso
-permite rollout seguro na ordem Worker primeiro, Agent depois.
+### Scripts
 
-## Product grants (administração somente)
+- `scripts/cloudflare/deploy-production-v3.sh`: deploy rotineiro do Worker já pronto.
+- `scripts/cloudflare/deploy-v3.sh`: bootstrap legado. Ele recusa explicitamente criar D1 na conta Cloudflare dedicada do OrdaX.
 
-A migration `0005_product_grants_audit.sql` adiciona o armazenamento durável de
-grants e o schema da trilha de auditoria do futuro Product MCP/OrdaX Web.
-
-O Worker expõe somente administração autenticada pelo token de operador:
-
-- `POST /v3/product-grants`: cria um grant explicitamente read-only;
-- `GET /v3/product-grants`: lista grants para operação/diagnóstico;
-- `DELETE /v3/product-grants/{id}`: revoga logicamente sem apagar histórico;
-- `POST /v3/product-grants/resolve`: diagnóstico administrativo que resolve um
-  grant ativo para subject/Space/device/action/project.
-
-A resolução é fail-closed: ignora grants revogados/expirados, respeita Space,
-device, action e project e prefere grants mais específicos. Ela anuncia
-`product_grant_resolution_v1` em `/health`.
-
-Os grants aceitam apenas a superfície read-only já definida pelo Action Gateway.
-Resolver um grant **não autentica o usuário e não executa ação**. Não existe rota
-Product para enfileirar/executar uma ação nesta etapa.
-
-O token de operador **não é identidade do usuário Product** e não pode ser reutilizado
-pelo Product MCP para agir em nome de um usuário.
-
-O Worker agora possui uma fundação de autenticação Product separada:
-`GET /v3/product/session` aceita somente JWT assinado e valida issuer, audience,
-expiração, not-before e assinatura via JWKS HTTPS. A autenticação é provider-neutral
-e só é habilitada quando `PRODUCT_AUTH_ISSUER`, `PRODUCT_AUTH_AUDIENCE` e
-`PRODUCT_AUTH_JWKS_URL` estão configurados. Sem essa configuração, a rota falha
-fechado. Nesta etapa ela apenas comprova o `subject_id`; não resolve grants nem
-enfileira ações.
-
-
-### Grants de Computer Control do proprietário
-
-`POST /v3/product/device-computer-grants` é uma rota Product autenticada pelo
-próprio usuário. A autoridade é derivada no servidor a partir do subject autenticado
-e de um `link_id` ativo daquele subject; o cliente não envia `subject_id`, `device_id`,
-`actions` ou `projects`. O MCP remoto não expõe essa rota como tool.
-
-Perfis server-derived:
-
-- `interactive-computer-control`: janelas, screenshot, mouse, click/drag, scroll, digitação, hotkeys e launch de aplicativos; **não** inclui clipboard, filesystem nem término de processos;
-- `computer-filesystem`: operações de arquivo/diretório limitadas pela política local do Runtime;
-- `computer-clipboard`: leitura/escrita do clipboard;
-- `computer-process-control`: inspeção e término de processos não protegidos;
-- `full-computer-control`: compatibilidade/opt-in explícito para toda a superfície device-scoped.
-
-Esses perfis são independentes da política local do Windows: grant remoto e política
-local precisam permitir a ação. Contexto do modelo nunca amplia autoridade.
-
-### Grant de navegador gerenciado por projeto
-
-A automação web do Studio possui uma autorização própria e **não herda Computer
-Control**. O perfil server-derived `project-browser-automation` concede somente as
-ações tipadas `browser.*` do navegador Chromium gerenciado pelo Runtime e exige um
-ou mais projetos explícitos.
-
-O proprietário cria, lista e revoga esse grant pelas rotas Product autenticadas
-`/v3/product/project-capability-grants`. O cliente fornece apenas o `link_id`, o
-perfil revisado, os slugs de projeto e a validade; o servidor deriva o conjunto exato
-de ações. Essas rotas não são ferramentas MCP, portanto um modelo remoto não pode
-conceder ou ampliar a própria autoridade.
-
-Esse caminho é separado do navegador nativo do OrdaX OS. No Studio ele existe para
-automação de projeto via sessão gerenciada/CDP e não deve degradar silenciosamente
-para mouse, teclado ou coordenadas de desktop quando a autorização estiver ausente.
+Não adicionar fallback para account antigo, Worker antigo ou D1 antigo.
 
 ## Segurança
 
-- token administrativo separado do token do dispositivo e da futura identidade Product;
-- token do dispositivo armazenado somente como SHA-256 no D1;
-- binding máquina/dispositivo;
-- API tipada e allow-list local;
-- URLs temporárias de leitura para artifacts;
-- sem shell remoto genérico.
+Regras permanentes:
 
-### Terminal report replay
+- PostgreSQL é o SSOT persistente;
+- sem D1 novo;
+- sem dual-write;
+- sem backend secret genérico do Supabase no Worker de produção;
+- credenciais runtime devem ser least-privilege;
+- token CI deve ser novo e dedicado à conta OrdaX;
+- 2FA é requisito de produção;
+- raw device token não deve ser persistido;
+- modelo/contexto nunca amplia grants;
+- sem shell remoto genérico;
+- DNS só muda após gates independentes e rollback comprovado.
 
-Terminal job results carry a unique `report_id` stored in D1. An identical replay
-with the same lease, execution epoch, runtime identity, status, result digest,
-canonical result JSON and error code is acknowledged as already committed. Any divergent
-replay is rejected as `terminal_report_conflict`.
+A conta dedicada ainda não deve ter `enforce_twofactor=true` enquanto o único membro não tiver 2FA habilitado, para evitar lockout. Primeiro habilitar 2FA no usuário; depois aplicar enforcement de conta.
 
-### Durable terminal outbox
+## DNS
 
-The Device Agent persists terminal reports under its local state directory before
-network delivery. Startup recovery uses `POST /v3/device/recover-report` with the
-device credential and the original execution context, before opening the device
-WebSocket. D1 accepts the report only if that execution context is still current,
-or acknowledges it if the identical terminal report was already committed.
+A zone `ordax.com.br` ainda não deve ser movida.
 
-A `running` job is never re-leased automatically. It fences later jobs for that
-device until terminal recovery succeeds or an operator resolves the stalled job.
-This prevents an expired lease from becoming an implicit second execution of a
-Blender/Unity/Git mutation.
+O blocker atual é a dependência `catalogo-media`, que pertence a Catálogo/Achegue-se e precisa ser realocada antes do cutover da zone. O workstream Cloudflare do OrdaX não deve alterar recursos Tonecos/Achegue-se durante essa migração.
 
+## Blockers de produção
 
-## Product identity provider
+A lista executável está somente em `production-foundation.json`. No estado atual ela inclui:
 
-Production deploys are configured to use the OrdaX Supabase Auth project as the
-Product identity provider:
+- R2 ainda não habilitado;
+- Hyperdrive ainda não provisionado;
+- runtime LOGIN PostgreSQL ainda não provisionado;
+- adapter Worker -> Hyperdrive ainda não implementado;
+- cutover D1 ainda incompleto;
+- token CI dedicado ainda não rotacionado/provisionado;
+- 2FA do account ainda não habilitado.
 
-- issuer: `https://eobcxuyvhkvdmkbaihwh.supabase.co/auth/v1`
-- audience: `authenticated`
-- JWKS: the project's `/.well-known/jwks.json`
+Não remover blocker por expectativa. Cada blocker só sai depois de evidência live + source/CI coerentes.
 
-These values are public verification metadata, not secrets. The deploy performs
-a live preflight and refuses to publish the Worker unless the JWKS endpoint is
-HTTPS and exposes at least one usable RS256 or ES256 key with a `kid`. This
-prevents a legacy HS256 configuration from making Product authentication appear
-ready when the Worker cannot verify it safely.
+## Provisionamento local do Device Agent
 
+O setup oficial do Windows continua em:
 
-## Production deployment gate
+`scripts/windows/ordax-device-agent-setup.ps1`
 
-Cloudflare v3 production deployment can still be started manually, but normal
-mainline deployment is now chained to the repository's `Bridge CI` workflow.
-The deploy job runs only when that workflow completed successfully for
-`main`, and it checks out the exact `workflow_run.head_sha` that passed CI.
+A credencial de dispositivo é gerada localmente e o backend recebe somente material derivado/hash conforme o contrato do runtime. Mudanças nesse fluxo devem preservar machine binding, fencing de execução e replay idempotente.
 
-This prevents production from racing ahead of Python tests, Worker compilation
-or the Cloudflare v3 E2E gate. The existing JWKS preflight and post-deploy
-`product_auth_configured=true` health requirement remain mandatory.
+## Princípio de cutover
+
+A ordem correta é:
+
+1. fechar authorities PostgreSQL faltantes;
+2. provisionar LOGIN runtime least-privilege;
+3. provisionar Hyperdrive;
+4. substituir os adapters D1/REST pelo caminho Hyperdrive/PostgreSQL;
+5. habilitar/provisionar R2 e migrar somente artifacts necessários, com integridade;
+6. remover D1 do `wrangler.toml` e do runtime;
+7. provisionar token CI dedicado e validar deploy/E2E;
+8. habilitar 2FA e enforcement de account;
+9. resolver a dependência DNS de Catálogo;
+10. somente depois executar cutover de `ordax.com.br`.
+
+Sem delete antecipado na origem e sem paliativos para atravessar gates.
