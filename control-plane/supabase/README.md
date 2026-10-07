@@ -92,7 +92,8 @@ The database exposes reviewed server-side RPCs through the NOLOGIN group role
 access to the `private` schema. It receives only explicit EXECUTE grants on the
 required RPCs.
 
-`service_role` is not the executor for these remote-action RPCs. A future
+`service_role` is not the executor for these remote-action RPCs and has no direct
+DML authority over the Product remote device/presence/binding/grant tables. A future
 environment LOGIN credential may inherit `ordax_edge_executor` only when it is
 provisioned outside migrations with dedicated secret management. No such LOGIN
 role is part of the canonical database baseline.
@@ -110,6 +111,19 @@ functions do not inherit EXECUTE through `PUBLIC` or server/runtime roles.
 Any intentional Data API or server exposure must therefore be granted explicitly
 in the same versioned migration that creates or changes the object. RLS and SQL
 privileges are separate controls; both must remain correct.
+
+## Grant groups and target projection
+
+Remote capabilities are replaced and revoked as explicit grant groups. The
+database derives Product targets only from active, non-expired grants. A
+device-scoped grant is owner-bound and has no synthetic Space/Project. A
+project-scoped grant requires a real active Space/Project, execute access to the
+device, an active project/device binding and capabilities present in that
+binding.
+
+The canonical grant-group migration deliberately has no `legacy` backfill. It
+requires the empty foundation state that exists before public rollout and fails
+closed if data is unexpectedly present.
 
 ## Presence and scale
 
