@@ -53,6 +53,28 @@ the canonical source owner for Control Plane PostgreSQL authority and hardening.
 New PostgreSQL changes in this domain must be introduced here first through a
 branch and pull request, then applied once to the canonical project.
 
+The applied ledger is locked in `migration-registry.json`. It records the exact
+canonical project, Supabase ledger version, source repository/path and Git blob
+for every approved migration. CI verifies that every SQL file in this directory
+matches its locked Git blob and that no unregistered canonical migration exists.
+
+Only historical migrations `0001` through `0007` are approved from the old
+`prototipo-ordax-os` migration root. The many later sync/network/legal/quota
+migrations that still exist in that historical directory are **not** authorized
+for replay into the São Paulo database merely because the files exist.
+
+For a new migration, the operational sequence is:
+
+1. create the SQL on a branch and open a PR before touching the live database;
+2. apply it exactly once to `jhfphsjptrpmtnzkpwud`;
+3. add the returned Supabase ledger version and the migration Git blob to the
+   registry in the same PR;
+4. merge only after the registry has no pending entry and CI is green.
+
+The registry also records the few historical cases where the checked-in file is
+SQL-equivalent to the ledger but differs only in formatting/comments. Those
+files are now pinned and must not drift further.
+
 The files
 `20261007181500_edge_runtime_role.sql` and
 `20261007182000_remove_unprovisioned_edge_login.sql` preserve exact migration

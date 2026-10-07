@@ -1,0 +1,257 @@
+{
+  "$schema": "ordax.supabase-migration-registry/1",
+  "canonical_database": {
+    "project_name": "ordax-platform-prod",
+    "project_ref": "jhfphsjptrpmtnzkpwud",
+    "region": "sa-east-1",
+    "persistent_ssot": "PostgreSQL"
+  },
+  "policy": {
+    "applied_migrations_are_immutable": true,
+    "reapply_applied_migration_allowed": false,
+    "dashboard_drift_allowed": false,
+    "dual_write_allowed": false,
+    "canonical_new_migration_root": "control-plane/supabase/migrations",
+    "historical_bootstrap_range": [
+      "0001_product_foundation",
+      "0007_projects_devices_fk_indexes"
+    ],
+    "historical_bootstrap_repository": "washingtonmsdj/prototipo-ordax-os",
+    "additional_historical_migrations_are_authorized_for_replay": false,
+    "new_migration_requires_branch_and_pr_before_apply": true,
+    "merge_with_pending_registry_entry_allowed": false
+  },
+  "migrations": [
+    {
+      "name": "0001_product_foundation",
+      "applied_version": "20261007175409",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/prototipo-ordax-os",
+        "path": "infra/supabase/product/migrations/0001_product_foundation.sql",
+        "blob_sha": "00f977227ca6a3ed52b11aa4e57e529079286ab4"
+      }
+    },
+    {
+      "name": "0002_product_foundation_indexes",
+      "applied_version": "20261007175426",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/prototipo-ordax-os",
+        "path": "infra/supabase/product/migrations/0002_product_foundation_indexes.sql",
+        "blob_sha": "27f9e113f03cf06b0967189874654a468f20729c"
+      }
+    },
+    {
+      "name": "0003_spaces_single_profile_pack_owner",
+      "applied_version": "20261007175441",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/prototipo-ordax-os",
+        "path": "infra/supabase/product/migrations/0003_spaces_single_profile_pack_owner.sql",
+        "blob_sha": "f19eada8f8c83ab389928749bcf6f5fee98d28e7"
+      }
+    },
+    {
+      "name": "0004_server_authoritative_mutations",
+      "applied_version": "20261007175445",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/prototipo-ordax-os",
+        "path": "infra/supabase/product/migrations/0004_server_authoritative_mutations.sql",
+        "blob_sha": "2495c6d1ae2b7b58bfc5e59f34a5579dfd72f772"
+      }
+    },
+    {
+      "name": "0005_private_indexes_and_active_pack_catalog",
+      "applied_version": "20261007175449",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/prototipo-ordax-os",
+        "path": "infra/supabase/product/migrations/0005_private_indexes_and_active_pack_catalog.sql",
+        "blob_sha": "427d69ae6a19e7cc24c003c91cefb65bf997df2f"
+      }
+    },
+    {
+      "name": "0006_projects_devices_remote_grants",
+      "applied_version": "20261007175456",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/prototipo-ordax-os",
+        "path": "infra/supabase/product/migrations/0006_projects_devices_remote_grants.sql",
+        "blob_sha": "0467afcfde4e545ddff6dacb96ad3b373ac9f953"
+      }
+    },
+    {
+      "name": "0007_projects_devices_fk_indexes",
+      "applied_version": "20261007175500",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/prototipo-ordax-os",
+        "path": "infra/supabase/product/migrations/0007_projects_devices_fk_indexes.sql",
+        "blob_sha": "56f47f3bb20d4e120499bae876ef575c79b44761"
+      }
+    },
+    {
+      "name": "20261007150000_product_remote_authority_v1",
+      "applied_version": "20261007175514",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007150000_product_remote_authority_v1.sql",
+        "blob_sha": "7f75073f98ff136c112c24b39ddf0a186c79e24a"
+      }
+    },
+    {
+      "name": "20261007152000_product_remote_authority_hardening",
+      "applied_version": "20261007175519",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007152000_product_remote_authority_hardening.sql",
+        "blob_sha": "e18b6e5d2052733b498a61543bccbef782418132"
+      }
+    },
+    {
+      "name": "20261007154000_product_device_identity_v1",
+      "applied_version": "20261007175523",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007154000_product_device_identity_v1.sql",
+        "blob_sha": "5285e28eadd7cec8e49733d09e131070ad62c251"
+      }
+    },
+    {
+      "name": "20261007155900_rls_event_trigger_boundary",
+      "applied_version": "20261007175527",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007155900_rls_event_trigger_boundary.sql",
+        "blob_sha": "fe1e1ca24276509e504f3add465759f3b637150d"
+      }
+    },
+    {
+      "name": "20261007180000_private_server_tables_deny_direct_access",
+      "applied_version": "20261007175620",
+      "state": "applied",
+      "ledger_source_relation": "sql-equivalent-format-or-comment-only",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007180000_private_server_tables_deny_direct_access.sql",
+        "blob_sha": "4557b4cd9003d73280398b294f049c4ac19ab78b"
+      }
+    },
+    {
+      "name": "20261007181000_edge_executor_least_privilege",
+      "applied_version": "20261007175823",
+      "state": "applied",
+      "ledger_source_relation": "sql-equivalent-format-or-comment-only",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007181000_edge_executor_least_privilege.sql",
+        "blob_sha": "ed72b3270cba73f78291b375b321060f81600eeb"
+      }
+    },
+    {
+      "name": "20261007181500_edge_runtime_role",
+      "applied_version": "20261007175842",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007181500_edge_runtime_role.sql",
+        "blob_sha": "9f3596e792b3614dc7d2c8d9339f9e4032bc074f"
+      }
+    },
+    {
+      "name": "20261007182000_remove_unprovisioned_edge_login",
+      "applied_version": "20261007175916",
+      "state": "applied",
+      "ledger_source_relation": "sql-equivalent-format-or-comment-only",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007182000_remove_unprovisioned_edge_login.sql",
+        "blob_sha": "f85e2e7a67f9e0db008f0b30dd342e8ab78fb717"
+      }
+    },
+    {
+      "name": "20261007183000_default_privileges_fail_closed",
+      "applied_version": "20261007195309",
+      "state": "applied",
+      "ledger_source_relation": "sql-equivalent-format-or-comment-only",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007183000_default_privileges_fail_closed.sql",
+        "blob_sha": "6315e66d29f2bcdfde2678a0fbb0a02cdf267b97"
+      }
+    },
+    {
+      "name": "20261007183500_function_default_execute_fail_closed",
+      "applied_version": "20261007195411",
+      "state": "applied",
+      "ledger_source_relation": "sql-equivalent-format-or-comment-only",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007183500_function_default_execute_fail_closed.sql",
+        "blob_sha": "1854858732dd24320cabf30d110b5d16320fd27a"
+      }
+    },
+    {
+      "name": "20261007184000_product_remote_service_role_direct_access_revoke",
+      "applied_version": "20261007200106",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007184000_product_remote_service_role_direct_access_revoke.sql",
+        "blob_sha": "2b625fd6883457e069636177245b1913277547c7"
+      }
+    },
+    {
+      "name": "20261007184500_product_capability_contract_v2",
+      "applied_version": "20261007200111",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007184500_product_capability_contract_v2.sql",
+        "blob_sha": "6ece9c2dbd9b0d8f51e86fde26c12b4aedc1af44"
+      }
+    },
+    {
+      "name": "20261007185000_product_grant_groups_v2",
+      "applied_version": "20261007200115",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007185000_product_grant_groups_v2.sql",
+        "blob_sha": "174fbad32ada1e8418a802fb50f2de765d09627e"
+      }
+    },
+    {
+      "name": "20261007190000_product_service_role_fail_closed",
+      "applied_version": "20261007201126",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007190000_product_service_role_fail_closed.sql",
+        "blob_sha": "7fe7a42f6bd8618afff9930691d7e163d43a3768"
+      }
+    }
+  ]
+}
