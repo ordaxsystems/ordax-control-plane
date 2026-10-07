@@ -1,6 +1,6 @@
 # ORDAX for ChatGPT — OpenAI plugin review runbook
 
-Status: pre-submission checklist for the **ORDAX for ChatGPT** connector 0.4.2.
+Status: pre-submission checklist for **ORDAX for ChatGPT**. The release version is owned by `plugins/ordax-chatgpt/plugin.json`.
 
 `ORDAX Studio` is the application name. This runbook covers only the ChatGPT connector and must not use the Studio name as the connector/product identity.
 
@@ -61,7 +61,7 @@ The artifact contains only:
 - `ordax-chatgpt-plugin-0.4.2.zip`;
 - its matching `.sha256` file.
 
-The ZIP contains exactly `plugin.json`, `mcp.json` and `assets/ordax.svg`. Legacy `ordax-dev-plugin-*` or `ordax-studio-plugin-*` package names are rejected by the canonical packaging flow.
+The ZIP contains one `ordax-chatgpt/` directory with exactly `plugin.json`, `mcp.json` and `assets/ordax.svg`. Legacy `ordax-dev-plugin-*` or `ordax-studio-plugin-*` package names are rejected by the canonical packaging flow.
 
 Verify the published SHA-256 before uploading the ZIP to the OpenAI submission UI.
 

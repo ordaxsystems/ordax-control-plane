@@ -5,8 +5,9 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
-from scripts.build_ordax_plugin import build_archive
+from scripts.build_ordax_plugin import build_archive, validate_package
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ROOT = ROOT / "plugins" / "ordax-chatgpt"
@@ -53,6 +54,16 @@ class OrdaxChatGptConnectorPackageTests(unittest.TestCase):
         for name in ("plugin.json", "mcp.json"):
             self.assertFalse((PLUGIN_ROOT / name).read_bytes().startswith(b"\xef\xbb\xbf"))
 
+    def test_builder_rejects_invalid_version_subtitle_and_prompt_count(self):
+        original = json.loads((PLUGIN_ROOT / "plugin.json").read_text(encoding="utf-8"))
+        for field, value in (("version", "../escape"), ("shortDescription", "x" * 31), ("defaultPrompt", ["one"] * 4)):
+            manifest = json.loads(json.dumps(original))
+            target = manifest if field == "version" else manifest["extensions"]["com.openai"]["interface"]
+            target[field] = value
+            with self.subTest(field=field), patch("scripts.build_ordax_plugin.load_manifest", return_value=manifest):
+                with self.assertRaises(ValueError):
+                    validate_package()
+
     def test_builder_produces_deterministic_portable_zip(self):
         with tempfile.TemporaryDirectory() as directory:
             first, first_sha = build_archive(Path(directory) / "a")
@@ -62,7 +73,7 @@ class OrdaxChatGptConnectorPackageTests(unittest.TestCase):
             with zipfile.ZipFile(first) as bundle:
                 self.assertEqual(
                     sorted(bundle.namelist()),
-                    ["assets/ordax.svg", "mcp.json", "plugin.json"],
+                    ["ordax-chatgpt/assets/ordax.svg", "ordax-chatgpt/mcp.json", "ordax-chatgpt/plugin.json"],
                 )
 
     def test_builder_removes_legacy_package_names(self):
@@ -80,6 +91,7 @@ class OrdaxChatGptConnectorPackageTests(unittest.TestCase):
         interface = manifest["extensions"]["com.openai"]["interface"]
         self.assertLessEqual(len(interface["displayName"]), 30)
         self.assertLessEqual(len(interface["shortDescription"]), 30)
+        self.assertLessEqual(len(interface["defaultPrompt"]), 3)
         for field in ("websiteURL", "supportURL", "privacyPolicyURL", "termsOfServiceURL"):
             self.assertTrue(interface[field].startswith("https://"))
         self.assertEqual(interface["composerIcon"], "./assets/ordax.svg")

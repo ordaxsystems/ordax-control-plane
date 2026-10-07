@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ordax-chatgpt",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Connect ChatGPT to an authorized ORDAX device for grant-scoped projects, typed Computer Control, files, Git and specialized adapters.",
   "author": {
     "name": "ORDAX",
@@ -45,8 +45,7 @@
         "defaultPrompt": [
           "Continue working on my ORDAX project from where we left off.",
           "Show the projects available on my connected ORDAX computer.",
-          "Show the screen geometry and visible windows on my connected ORDAX computer.",
-          "Capture the active window on my connected ORDAX computer."
+          "Show the screen geometry and visible windows on my connected ORDAX computer."
         ],
         "brandColor": "#0B1724",
         "brandColorDark": "#76B8FF",
@@ -131,7 +130,7 @@
       },
       "publication": {
         "countries": [],
-        "release_notes": "Adds owner-approved Full Computer Control guidance while preserving separate local Runtime consent, Windows/UAC boundaries, and granular review grants.",
+        "release_notes": "Corrects connector packaging, UTF-8 status text, bounded request parsing, and owner grant guidance derived from canonical profiles.",
         "translations": {
           "pt-BR": {
             "subtitle": "Use o ORDAX no ChatGPT",

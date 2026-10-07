@@ -1,8 +1,9 @@
 import {
   authenticateProductRequest,
   type ProductAuthEnv,
-} from "./product_auth";
-import { PROJECT_BROWSER_ACTIONS } from "./product_action_scope";
+} from "./product_auth.ts";
+import { PROJECT_BROWSER_ACTIONS } from "./product_action_scope.ts";
+import { readBoundedJsonObject } from "./request_json.ts";
 
 type JsonObject = Record<string, unknown>;
 
@@ -31,19 +32,8 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-function isRecord(value: unknown): value is JsonObject {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
 async function parseSmallJson(request: Request): Promise<JsonObject | null> {
-  const raw = await request.text();
-  if (!raw || raw.length > MAX_BODY_BYTES) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    return isRecord(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
+  return readBoundedJsonObject(request, MAX_BODY_BYTES);
 }
 
 function parseExpiry(value: unknown): string | null | undefined {
@@ -70,6 +60,7 @@ function normalizedProjects(value: unknown): string[] | null {
 }
 
 function actionsForMode(mode: string): string[] | null {
+  if (!Object.hasOwn(OWNER_PROJECT_GRANT_PROFILES, mode)) return null;
   const actions = OWNER_PROJECT_GRANT_PROFILES[mode];
   return actions?.length ? [...actions].sort() : null;
 }

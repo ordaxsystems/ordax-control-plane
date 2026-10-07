@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import zipfile
 from pathlib import Path
 
@@ -25,8 +26,24 @@ def load_manifest() -> dict:
 
 def validate_package() -> dict:
     manifest = load_manifest()
+    version = manifest.get("version")
+    if not isinstance(version, str) or not re.fullmatch(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)", version):
+        raise ValueError("plugin version must be a strict semantic version")
+    interface = manifest["extensions"]["com.openai"]["interface"]
+    subtitle = interface.get("shortDescription")
+    if not isinstance(subtitle, str) or not 1 <= len(subtitle) <= 30:
+        raise ValueError("shortDescription must contain 1 to 30 characters")
+    prompts = interface.get("defaultPrompt")
+    if isinstance(prompts, str):
+        prompts = [prompts]
+    if not isinstance(prompts, list) or not 1 <= len(prompts) <= 3 or not all(
+        isinstance(prompt, str) and prompt.strip() for prompt in prompts
+    ):
+        raise ValueError("defaultPrompt must be a string or 1 to 3 nonempty strings")
     for name in PACKAGE_FILES:
         path = PLUGIN_ROOT / name
+        if path.is_symlink() or not path.resolve().is_relative_to(PLUGIN_ROOT.resolve()):
+            raise ValueError(f"plugin file must be contained and not a symlink: {name}")
         if not path.is_file():
             raise FileNotFoundError(path)
     for name in JSON_FILES:
@@ -52,7 +69,7 @@ def build_archive(output_dir: Path) -> tuple[Path, str]:
     with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as bundle:
         for name in sorted(PACKAGE_FILES):
             data = (PLUGIN_ROOT / name).read_bytes()
-            info = zipfile.ZipInfo(name.replace("\\", "/"), date_time=FIXED_ZIP_TIME)
+            info = zipfile.ZipInfo(f"{manifest['name']}/{name}", date_time=FIXED_ZIP_TIME)
             info.compress_type = zipfile.ZIP_DEFLATED
             info.external_attr = 0o644 << 16
             bundle.writestr(info, data, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)

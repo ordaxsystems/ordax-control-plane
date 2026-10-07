@@ -19,10 +19,6 @@ class McpOwnerGrantHintContractTests(unittest.TestCase):
 
     def test_hints_point_only_to_reviewed_owner_profiles(self) -> None:
         for mode in (
-            "interactive-computer-control",
-            "computer-filesystem",
-            "computer-clipboard",
-            "computer-process-control",
             "project-browser-automation",
             "app-intelligence-read",
         ):
@@ -32,11 +28,9 @@ class McpOwnerGrantHintContractTests(unittest.TestCase):
         self.assertIn("alternative_profile_requires_local_full_access: true", self.source)
 
     def test_sensitive_actions_have_specific_profiles(self) -> None:
-        self.assertIn('"computer.terminate_process", { profile: "computer-process-control"', self.source)
-        for action in ("computer.clipboard_read", "computer.clipboard_write"):
-            self.assertIn(f'"{action}"', self.source)
-        for action in ("computer.drag", "computer.hotkey"):
-            self.assertIn(f'"{action}"', self.source)
+        self.assertIn('from "./product_device_grants.ts"', self.source)
+        self.assertIn('Object.entries(OWNER_DEVICE_COMPUTER_GRANT_PROFILES)', self.source)
+        self.assertNotIn('profile: "computer-process-control"', self.source)
 
     def test_browser_actions_use_browser_profile_without_computer_authority(self) -> None:
         for action in (
