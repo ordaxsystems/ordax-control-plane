@@ -11,6 +11,8 @@ CAPABILITY_V2 = ROOT / "control-plane" / "supabase" / "migrations" / "2026100718
 GRANT_GROUPS_V2 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007185000_product_grant_groups_v2.sql"
 PRODUCT_SERVICE_ROLE_FAIL_CLOSED = ROOT / "control-plane" / "supabase" / "migrations" / "20261007190000_product_service_role_fail_closed.sql"
 PUBLIC_SCHEMA_FAIL_CLOSED = ROOT / "control-plane" / "supabase" / "migrations" / "20261007191500_public_schema_usage_fail_closed.sql"
+CLIENT_MUTATION_POLICY_CLEANUP = ROOT / "control-plane" / "supabase" / "migrations" / "20261007192000_remove_dead_authenticated_mutation_policies.sql"
+SUBJECT_AUTHORIZATION_SSOT = ROOT / "control-plane" / "supabase" / "migrations" / "20261007192500_subject_authorization_ssot_v1.sql"
 MIGRATION_REGISTRY = ROOT / "control-plane" / "supabase" / "migration-registry.json"
 ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 
@@ -25,6 +27,8 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         cls.grant_groups_v2 = GRANT_GROUPS_V2.read_text(encoding="utf-8")
         cls.product_service_role_fail_closed = PRODUCT_SERVICE_ROLE_FAIL_CLOSED.read_text(encoding="utf-8")
         cls.public_schema_fail_closed = PUBLIC_SCHEMA_FAIL_CLOSED.read_text(encoding="utf-8")
+        cls.client_mutation_policy_cleanup = CLIENT_MUTATION_POLICY_CLEANUP.read_text(encoding="utf-8")
+        cls.subject_authorization_ssot = SUBJECT_AUTHORIZATION_SSOT.read_text(encoding="utf-8")
         cls.migration_registry = json.loads(MIGRATION_REGISTRY.read_text(encoding="utf-8"))
         cls.adapter = ADAPTER.read_text(encoding="utf-8")
 
@@ -233,6 +237,36 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         self.assertIn("public schema privilege survived", lowered)
         self.assertIn("ordax_edge_executor", lowered)
         self.assertIn("private", lowered)
+
+    def test_dead_authenticated_mutation_policies_are_removed(self) -> None:
+        lowered = self.client_mutation_policy_cleanup.lower()
+        for policy in (
+            "ordax_spaces_insert_own",
+            "ordax_spaces_update_admin",
+            "ordax_spaces_delete_owner",
+            "ordax_space_members_insert_admin",
+            "ordax_space_members_update_admin",
+            "ordax_space_members_delete_admin",
+            "ordax_memory_items_insert_own",
+            "ordax_memory_items_update_own",
+            "ordax_memory_items_delete_own",
+        ):
+            self.assertIn(f"drop policy if exists {policy}", lowered)
+        self.assertNotIn("grant ", lowered)
+
+    def test_subject_authorization_is_centralized_for_server_executors(self) -> None:
+        lowered = self.subject_authorization_ssot.lower()
+        for helper in (
+            "ordax_subject_can_access_space_v1",
+            "ordax_subject_can_admin_space_v1",
+            "ordax_subject_can_access_project_v1",
+            "ordax_subject_can_access_product_device_v1",
+        ):
+            self.assertIn(f"create function private.{helper}", lowered)
+        self.assertIn("from public, anon, authenticated, service_role, ordax_edge_executor", lowered)
+        self.assertIn("to authenticated;", lowered)
+        self.assertNotIn("to service_role;", lowered)
+        self.assertNotIn("to ordax_edge_executor;", lowered)
 
     def test_migration_registry_pins_canonical_database_and_history(self) -> None:
         registry = self.migration_registry
