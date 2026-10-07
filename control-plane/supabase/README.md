@@ -102,6 +102,20 @@ Private Product action tables grant no direct access to browser roles or to the
 edge executor. Server authority enters only through narrowly reviewed
 `SECURITY DEFINER` RPCs with pinned `search_path`.
 
+## Generic service role is fail-closed
+
+The Supabase `service_role` is not an ORDAX application executor. It has no
+direct privileges on canonical ORDAX Product tables and no EXECUTE privilege on
+the Product RPC surface.
+
+This is deliberate even though `service_role` can bypass RLS: server-side
+product mutation must not depend on a generic bypass credential. Each mutation
+domain must expose a reviewed RPC to a dedicated NOLOGIN executor, with any
+environment LOGIN credential provisioned separately through secret management.
+
+The Auth bootstrap trigger remains owned by `postgres`; revoking
+`service_role` from `ordax_accounts` does not affect account-row bootstrap.
+
 ## Default privileges
 
 Future objects created by `postgres` in `public` and `private` are
