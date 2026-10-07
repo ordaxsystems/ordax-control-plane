@@ -16,6 +16,7 @@ SUBJECT_AUTHORIZATION_SSOT = ROOT / "control-plane" / "supabase" / "migrations" 
 SPACE_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007193000_space_authority_v1.sql"
 PROJECT_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007193500_project_authority_v1.sql"
 PROJECT_CONNECTION_CONTRACT = ROOT / "control-plane" / "supabase" / "migrations" / "20261007194000_project_connection_contract_hardening_v1.sql"
+MEMORY_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007194500_memory_authority_v1.sql"
 MIGRATION_REGISTRY = ROOT / "control-plane" / "supabase" / "migration-registry.json"
 ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 
@@ -35,6 +36,7 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         cls.space_authority_v1 = SPACE_AUTHORITY_V1.read_text(encoding="utf-8")
         cls.project_authority_v1 = PROJECT_AUTHORITY_V1.read_text(encoding="utf-8")
         cls.project_connection_contract = PROJECT_CONNECTION_CONTRACT.read_text(encoding="utf-8")
+        cls.memory_authority_v1 = MEMORY_AUTHORITY_V1.read_text(encoding="utf-8")
         cls.migration_registry = json.loads(MIGRATION_REGISTRY.read_text(encoding="utf-8"))
         cls.adapter = ADAPTER.read_text(encoding="utf-8")
 
@@ -334,6 +336,30 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         self.assertNotIn("create function", lowered)
         self.assertNotIn("grant ", lowered)
 
+    def test_memory_authority_is_canonical_and_rpc_only(self) -> None:
+        lowered = self.memory_authority_v1.lower()
+        self.assertIn("create role ordax_memory_executor", lowered)
+        self.assertIn("nologin", lowered)
+        self.assertIn("noinherit", lowered)
+        self.assertIn("nobypassrls", lowered)
+        self.assertIn("drop column project_ref", lowered)
+        self.assertIn("add column project_id uuid", lowered)
+        self.assertIn("scope in ('account', 'space', 'project')", lowered)
+        self.assertIn("ordax_memory_items_project_space_fk", lowered)
+        self.assertIn("ordax_subject_can_access_space_v1", lowered)
+        self.assertIn("ordax_subject_can_access_project_v1", lowered)
+        self.assertIn("ordax_create_memory_item_v1", lowered)
+        self.assertIn("ordax_update_memory_item_v1", lowered)
+        self.assertIn("to ordax_memory_executor;", lowered)
+        self.assertNotIn("to service_role;", lowered)
+        self.assertNotIn("to authenticated;", lowered)
+        self.assertNotIn("scope = 'device'", lowered)
+        self.assertNotIn("scope = 'session'", lowered)
+        self.assertNotIn("grant select", lowered)
+        self.assertNotIn("grant insert", lowered)
+        self.assertNotIn("grant update", lowered)
+        self.assertNotIn("grant delete", lowered)
+
     def test_migration_registry_pins_canonical_database_and_history(self) -> None:
         registry = self.migration_registry
         self.assertEqual(
@@ -364,7 +390,7 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         entries = {
             entry["name"]: entry
             for entry in self.migration_registry["migrations"]
-            if entry["source"]["repository"] == "washingtonmsdj/ordax-control-plane"
+            if entry["source"]["path"].startswith("control-plane/supabase/migrations/")
         }
         source_files = sorted(migrations_root.glob("*.sql"))
         self.assertEqual(
