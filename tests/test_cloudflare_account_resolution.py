@@ -69,6 +69,8 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertEqual(foundation["postgres"]["executor_role"], "ordax_edge_executor")
         self.assertEqual(foundation["postgres"]["runtime_transport"], "hyperdrive")
         self.assertEqual(foundation["postgres"]["hyperdrive_binding"], "POSTGRES")
+        with WRANGLER.open("rb") as handle:
+            wrangler = tomllib.load(handle)
         hyperdrive_bindings = wrangler.get("hyperdrive") or []
         self.assertEqual(len(hyperdrive_bindings), 1)
         self.assertEqual(hyperdrive_bindings[0]["binding"], "POSTGRES")
