@@ -1,4 +1,5 @@
 import json
+import re
 import tomllib
 import unittest
 from pathlib import Path
@@ -10,9 +11,41 @@ ROUTINE_DEPLOY = ROOT / "scripts" / "cloudflare" / "deploy-production-v3.sh"
 FOUNDATION = ROOT / "control-plane" / "cloudflare" / "production-foundation.json"
 WRANGLER = ROOT / "control-plane" / "cloudflare" / "wrangler.toml"
 POSTGRES_ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
+CLOUDFLARE_SRC = ROOT / "control-plane" / "cloudflare" / "src"
+CLOUDFLARE_MIGRATIONS = ROOT / "control-plane" / "cloudflare" / "migrations"
 
 OLD_ACCOUNT_ID = "ac1ca1b50d09c7a4cb81274d2aa1e78f"
 DEDICATED_ACCOUNT_ID = "42586bf13b61436219d21def299833e4"
+
+LEGACY_D1_SOURCE_ALLOWLIST = {
+    "index.ts",
+    "product_device_grants.ts",
+    "product_intelligence_grants.ts",
+    "product_project_grants.ts",
+    "retention.ts",
+}
+LEGACY_D1_MIGRATION_ALLOWLIST = {
+    "0001_initial.sql",
+    "0002_device_enrollment.sql",
+    "0003_terminal_report_replay.sql",
+    "0004_artifact_multipart_uploads.sql",
+    "0005_product_grants_audit.sql",
+    "0006_product_action_requests.sql",
+    "0007_product_device_pairing.sql",
+    "0008_product_device_owner.sql",
+}
+LEGACY_D1_TABLE_ALLOWLIST = {
+    "ordax_devices",
+    "ordax_jobs",
+    "ordax_job_events",
+    "ordax_artifacts",
+    "ordax_artifact_uploads",
+    "ordax_product_grants",
+    "ordax_product_audit",
+    "ordax_product_action_requests",
+    "ordax_product_device_pairings",
+    "ordax_product_device_links",
+}
 
 
 class CloudflareAccountResolutionContractTests(unittest.TestCase):
@@ -48,6 +81,47 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
             "product_auth_metadata_not_repointed",
             foundation["readiness_blockers"],
         )
+
+    def test_legacy_d1_surface_is_frozen_while_cutover_is_incomplete(self):
+        foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
+        blockers = set(foundation["readiness_blockers"])
+        d1_sources = set()
+        referenced_tables = set()
+
+        table_pattern = re.compile(
+            r"\\b(?:from|join|into|update|table)\\s+(ordax_[a-z0-9_]+)",
+            re.IGNORECASE,
+        )
+        for path in CLOUDFLARE_SRC.glob("*.ts"):
+            source = path.read_text(encoding="utf-8")
+            if (
+                "D1Database" in source
+                or "env.DB" in source
+                or "this.env.DB" in source
+            ):
+                d1_sources.add(path.name)
+                referenced_tables.update(
+                    match.lower() for match in table_pattern.findall(source)
+                )
+
+        migrations = {path.name for path in CLOUDFLARE_MIGRATIONS.glob("*.sql")}
+
+        self.assertTrue(
+            d1_sources.issubset(LEGACY_D1_SOURCE_ALLOWLIST),
+            f"new D1 source files are forbidden: {sorted(d1_sources - LEGACY_D1_SOURCE_ALLOWLIST)}",
+        )
+        self.assertTrue(
+            migrations.issubset(LEGACY_D1_MIGRATION_ALLOWLIST),
+            f"new D1 migrations are forbidden: {sorted(migrations - LEGACY_D1_MIGRATION_ALLOWLIST)}",
+        )
+        self.assertTrue(
+            referenced_tables.issubset(LEGACY_D1_TABLE_ALLOWLIST),
+            f"new D1 tables are forbidden: {sorted(referenced_tables - LEGACY_D1_TABLE_ALLOWLIST)}",
+        )
+
+        if d1_sources or migrations:
+            self.assertFalse(foundation["policy"]["allow_d1"])
+            self.assertIn("worker_d1_cutover_incomplete", blockers)
 
     def test_product_auth_metadata_is_derived_from_canonical_project_ref(self):
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
