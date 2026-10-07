@@ -69,6 +69,13 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertEqual(foundation["postgres"]["executor_role"], "ordax_edge_executor")
         self.assertEqual(foundation["postgres"]["runtime_transport"], "hyperdrive")
         self.assertEqual(foundation["postgres"]["hyperdrive_binding"], "POSTGRES")
+        hyperdrive_bindings = wrangler.get("hyperdrive") or []
+        self.assertEqual(len(hyperdrive_bindings), 1)
+        self.assertEqual(hyperdrive_bindings[0]["binding"], "POSTGRES")
+        self.assertEqual(
+            hyperdrive_bindings[0]["id"],
+            foundation["live_evidence"]["hyperdrive"]["id"],
+        )
         self.assertEqual(foundation["postgres"]["query_cache"], "disabled")
         self.assertIn(
             "SUPABASE_SERVER_KEY",
