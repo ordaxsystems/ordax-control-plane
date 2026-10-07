@@ -296,6 +296,28 @@
         "path": "control-plane/supabase/migrations/20261007193000_space_authority_v1.sql",
         "blob_sha": "93e7ee3d6c58f3c02f0182697eb4bd98b7299887"
       }
+    },
+    {
+      "name": "20261007193500_project_authority_v1",
+      "applied_version": "20261007205227",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007193500_project_authority_v1.sql",
+        "blob_sha": "21e9552391987dfb1705743c206366f85894ce5b"
+      }
+    },
+    {
+      "name": "20261007194000_project_connection_contract_hardening_v1",
+      "applied_version": "20261007205231",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007194000_project_connection_contract_hardening_v1.sql",
+        "blob_sha": "ead0b8928d273ab25b6fdb721331c40147fd227b"
+      }
     }
   ]
 }
