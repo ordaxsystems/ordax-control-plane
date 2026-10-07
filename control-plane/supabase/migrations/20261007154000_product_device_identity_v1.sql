@@ -290,14 +290,24 @@ begin
     pg_catalog.hashtext(p_machine_binding_sha256)
   );
 
-  select d.*, c.*
-    into v_device, v_credential
+  select d.*
+    into v_device
     from private.ordax_product_device_credentials c
     join public.ordax_product_devices d on d.device_id = c.device_id
    where c.machine_binding_sha256 = p_machine_binding_sha256
-   for update of c, d;
+   for update of d;
 
   if found then
+    select c.*
+      into v_credential
+      from private.ordax_product_device_credentials c
+     where c.device_id = v_device.device_id
+     for update;
+
+    if not found then
+      return jsonb_build_object('ok', false, 'error', 'device_credential_missing');
+    end if;
+
     if v_device.owner_user_id <> p_owner_user_id then
       return jsonb_build_object('ok', false, 'error', 'device_owner_mismatch');
     end if;
