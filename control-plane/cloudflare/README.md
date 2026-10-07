@@ -164,7 +164,7 @@ Regras permanentes:
 - sem shell remoto genérico;
 - DNS só muda após gates independentes e rollback comprovado.
 
-A conta dedicada ainda não deve ter `enforce_twofactor=true` enquanto o único membro não tiver 2FA habilitado, para evitar lockout. Primeiro habilitar 2FA no usuário; depois aplicar enforcement de conta.
+O único membro administrativo já possui 2FA habilitado. O enforcement account-level continua sendo uma camada separada e deve ser ativado apenas por um fluxo administrativo em que o estado resultante possa ser verificado sem risco de lockout.
 
 ## DNS
 
@@ -183,7 +183,6 @@ A lista executável está somente em `production-foundation.json`. No estado atu
 - autenticação operacional legada por `ORDAX_OPERATOR_TOKEN` ainda não removida/substituída;
 - Worker de produção ainda não provisionado;
 - token CI permanente Worker-scoped ainda não provisionado;
-- 2FA do account ainda não habilitado.
 
 Não remover blocker por expectativa. Cada blocker só sai depois de evidência live + source/CI coerentes.
 
