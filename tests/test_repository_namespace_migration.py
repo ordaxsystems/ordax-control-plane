@@ -13,7 +13,7 @@ class RepositoryNamespaceMigrationTests(unittest.TestCase):
 
     def test_transfer_target_is_exact_and_identity_preserving(self):
         self.assertEqual(self.contract["$schema"], "ordax-control-plane.repository-migration/1")
-        self.assertEqual(self.contract["status"], "target-ready-cutover-pending")
+        self.assertEqual(self.contract["status"], "cutover-complete")
         self.assertEqual(self.contract["repository_id"], "1406415892")
         self.assertEqual(self.contract["current_repository"], "washingtonmsdj/ordax-control-plane")
         self.assertEqual(self.contract["target_repository"], "ordaxsystems/ordax-control-plane")
@@ -35,11 +35,12 @@ class RepositoryNamespaceMigrationTests(unittest.TestCase):
         self.assertEqual(owners["remote_control_plane"], "ordax-control-plane")
 
     def test_post_transfer_revalidation_is_mandatory(self):
-        requirements = set(self.contract["transfer_requirements"])
-        self.assertIn("repository-transfer-complete", requirements)
-        self.assertIn("control-plane-ci-green-after-transfer", requirements)
-        self.assertIn("github-environments-and-deploy-credentials-revalidated", requirements)
-        self.assertIn("consumer-references-repointed", requirements)
+        completed = set(self.contract["completed_requirements"])
+        pending = set(self.contract["pending_requirements"])
+        self.assertIn("repository-transfer-complete", completed)
+        self.assertIn("control-plane-ci-green-after-transfer", pending)
+        self.assertIn("github-environments-and-deploy-credentials-revalidated", pending)
+        self.assertIn("consumer-references-repointed", pending)
 
 
 if __name__ == "__main__":
