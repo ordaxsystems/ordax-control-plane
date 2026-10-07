@@ -285,6 +285,17 @@
         "path": "control-plane/supabase/migrations/20261007192500_subject_authorization_ssot_v1.sql",
         "blob_sha": "2a9203ebced6c97cc2d125f051306e373411b0d9"
       }
+    },
+    {
+      "name": "20261007193000_space_authority_v1",
+      "applied_version": "20261007204525",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007193000_space_authority_v1.sql",
+        "blob_sha": "93e7ee3d6c58f3c02f0182697eb4bd98b7299887"
+      }
     }
   ]
 }

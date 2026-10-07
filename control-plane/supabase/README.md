@@ -183,6 +183,20 @@ The subject-aware helpers are not executable by `anon`, `authenticated`,
 `service_role` or `ordax_edge_executor`; they are internal authorization
 building blocks for reviewed SECURITY DEFINER boundaries.
 
+## Space authority
+
+Space mutations use a dedicated NOLOGIN/NOINHERIT `ordax_space_executor`.
+The role has schema USAGE and explicit EXECUTE only on the reviewed Space RPCs;
+it has no direct table/sequence authority and no private-schema access.
+
+`ordax_spaces.owner_user_id` is the only ownership SSOT. Member rows represent
+only `admin`, `member` or `viewer`; they cannot create a second owner
+concept. Space `kind` is fixed at creation, while the update RPC may change
+only name, state and metadata.
+
+No environment LOGIN member is provisioned by the database baseline. Wiring a
+runtime credential to this executor is a separate deployment gate.
+
 ## Grant groups and target projection
 
 Remote capabilities are replaced and revoked as explicit grant groups. The

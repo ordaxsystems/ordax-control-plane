@@ -13,6 +13,7 @@ PRODUCT_SERVICE_ROLE_FAIL_CLOSED = ROOT / "control-plane" / "supabase" / "migrat
 PUBLIC_SCHEMA_FAIL_CLOSED = ROOT / "control-plane" / "supabase" / "migrations" / "20261007191500_public_schema_usage_fail_closed.sql"
 CLIENT_MUTATION_POLICY_CLEANUP = ROOT / "control-plane" / "supabase" / "migrations" / "20261007192000_remove_dead_authenticated_mutation_policies.sql"
 SUBJECT_AUTHORIZATION_SSOT = ROOT / "control-plane" / "supabase" / "migrations" / "20261007192500_subject_authorization_ssot_v1.sql"
+SPACE_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007193000_space_authority_v1.sql"
 MIGRATION_REGISTRY = ROOT / "control-plane" / "supabase" / "migration-registry.json"
 ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 
@@ -29,6 +30,7 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         cls.public_schema_fail_closed = PUBLIC_SCHEMA_FAIL_CLOSED.read_text(encoding="utf-8")
         cls.client_mutation_policy_cleanup = CLIENT_MUTATION_POLICY_CLEANUP.read_text(encoding="utf-8")
         cls.subject_authorization_ssot = SUBJECT_AUTHORIZATION_SSOT.read_text(encoding="utf-8")
+        cls.space_authority_v1 = SPACE_AUTHORITY_V1.read_text(encoding="utf-8")
         cls.migration_registry = json.loads(MIGRATION_REGISTRY.read_text(encoding="utf-8"))
         cls.adapter = ADAPTER.read_text(encoding="utf-8")
 
@@ -267,6 +269,39 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         self.assertIn("to authenticated;", lowered)
         self.assertNotIn("to service_role;", lowered)
         self.assertNotIn("to ordax_edge_executor;", lowered)
+
+    def test_space_authority_has_dedicated_nologin_executor(self) -> None:
+        lowered = self.space_authority_v1.lower()
+        self.assertIn("create role ordax_space_executor", lowered)
+        self.assertIn("noinherit", lowered)
+        self.assertIn("nologin", lowered)
+        self.assertIn("nobypassrls", lowered)
+        self.assertIn("grant usage on schema public to ordax_space_executor", lowered)
+        self.assertNotIn("grant select", lowered)
+        self.assertNotIn("grant insert", lowered)
+        self.assertNotIn("grant update", lowered)
+        self.assertNotIn("grant delete", lowered)
+
+    def test_space_owner_is_single_source_of_truth(self) -> None:
+        lowered = self.space_authority_v1.lower()
+        self.assertIn("owner_user_id is the single owner ssot", lowered)
+        self.assertIn("where role = 'owner'", lowered)
+        self.assertIn("check (role in ('admin', 'member', 'viewer'))", lowered)
+        self.assertIn("space_owner_membership_forbidden", lowered)
+
+    def test_space_mutations_are_rpc_only(self) -> None:
+        lowered = self.space_authority_v1.lower()
+        for rpc in (
+            "ordax_create_space_v1",
+            "ordax_update_space_v1",
+            "ordax_set_space_member_v1",
+            "ordax_remove_space_member_v1",
+        ):
+            self.assertIn(f"create function public.{rpc}", lowered)
+        self.assertIn("to ordax_space_executor;", lowered)
+        self.assertNotIn("to service_role;", lowered)
+        self.assertNotIn("to authenticated;", lowered)
+        self.assertIn("ordax_subject_can_admin_space_v1", lowered)
 
     def test_migration_registry_pins_canonical_database_and_history(self) -> None:
         registry = self.migration_registry
