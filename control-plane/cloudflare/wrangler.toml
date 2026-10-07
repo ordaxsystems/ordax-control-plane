@@ -2,9 +2,15 @@ name = "ordax-control-plane-v3"
 main = "src/index.ts"
 compatibility_date = "2026-09-27"
 workers_dev = true
+preview_urls = false
 
 [observability]
 enabled = true
+redact_query_string = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
 
 [triggers]
 crons = ["17 3 * * *"]
