@@ -93,14 +93,10 @@ create table if not exists private.ordax_product_action_requests (
   unique (owner_user_id, idempotency_key),
   unique (effect_id),
   unique (report_id),
-  check (
-    (project_id is null)
-    or exists (
-      select 1
-      from public.ordax_projects p
-      where p.project_id = project_id and p.space_id = space_id
-    )
-  )
+  constraint ordax_product_action_request_project_space_fk
+    foreign key (project_id, space_id)
+    references public.ordax_projects(project_id, space_id)
+    on delete cascade
 );
 
 comment on table private.ordax_product_action_requests is
