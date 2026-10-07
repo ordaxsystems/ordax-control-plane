@@ -60,6 +60,28 @@ print(ids[0])
   fi
 fi
 
+TARGET_ACCOUNT_ID="$(python - "$FOUNDATION_FILE" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+account_id = str(data.get("account_id") or "")
+if re.fullmatch(r"[0-9a-f]{32}", account_id) is None:
+    raise SystemExit("invalid canonical Cloudflare account_id")
+if data.get("policy", {}).get("allow_d1") is not False:
+    raise SystemExit("production foundation must forbid D1")
+print(account_id)
+PY
+)"
+
+if [[ "$CLOUDFLARE_ACCOUNT_ID" == "$TARGET_ACCOUNT_ID" ]]; then
+  echo "Refusing legacy D1 bootstrap on the dedicated OrdaX Cloudflare account." >&2
+  echo "The destination foundation is PostgreSQL/Hyperdrive + R2 + Durable Objects only." >&2
+  exit 3
+fi
+
 echo "Resolving workers.dev account subdomain"
 subdomain_response=""
 if subdomain_response="$(cloudflare_api "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" 2>/dev/null)"; then
