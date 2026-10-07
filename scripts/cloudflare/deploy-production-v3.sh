@@ -2,18 +2,39 @@
 set -euo pipefail
 
 WRANGLER_VERSION="${WRANGLER_VERSION:-4.141.0}"
-ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:-ac1ca1b50d09c7a4cb81274d2aa1e78f}"
+ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID is required}"
 WORKER_NAME="ordax-control-plane-v3"
-CONTROL_PLANE_URL="https://ordax-control-plane-v3.ordax-ac1ca1b50d09.workers.dev"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONFIG="$ROOT/control-plane/cloudflare/wrangler.toml"
 
 : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required}"
 export CLOUDFLARE_ACCOUNT_ID="$ACCOUNT_ID"
 
+cloudflare_api() {
+  curl --fail-with-body --silent --show-error \
+    -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    "$@"
+}
+
+# Resolve the destination URL from the dedicated account at deploy time.
+# Routine deploys never create the workers.dev subdomain.
+subdomain_json="$(cloudflare_api \
+  "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT_ID/workers/subdomain")"
+WORKERS_SUBDOMAIN="$(printf '%s' "$subdomain_json" | python -c '
+import json,sys
+data=json.load(sys.stdin)
+print((data.get("result") or {}).get("subdomain") or "")
+')"
+if [[ -z "$WORKERS_SUBDOMAIN" ]]; then
+  echo "Dedicated Cloudflare account has no workers.dev subdomain; bootstrap it explicitly before deployment." >&2
+  exit 2
+fi
+
+CONTROL_PLANE_URL="https://$WORKER_NAME.$WORKERS_SUBDOMAIN.workers.dev"
+
 # Routine production deploys must not provision or mutate bound infrastructure.
-# D1/R2/DO bindings are declared in the canonical Wrangler config and existing
-# Worker secrets are intentionally preserved by Wrangler.
+# All required bindings must already exist and match the canonical production foundation.
 npx --yes "wrangler@${WRANGLER_VERSION}" deploy --config "$CONFIG"
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then

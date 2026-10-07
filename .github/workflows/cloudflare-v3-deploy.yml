@@ -16,16 +16,83 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  foundation:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      account_id: ${{ steps.foundation.outputs.account_id }}
+      deployment_ready: ${{ steps.foundation.outputs.deployment_ready }}
+    steps:
+      - name: Checkout exact successful source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Validate canonical Cloudflare production foundation
+        id: foundation
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("control-plane/cloudflare/production-foundation.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+
+          account_id = str(data.get("account_id") or "")
+          if re.fullmatch(r"[0-9a-f]{32}", account_id) is None:
+              raise SystemExit("invalid canonical Cloudflare account_id")
+
+          authorities = data.get("authorities") or {}
+          if authorities.get("persistent") != "postgresql":
+              raise SystemExit("persistent authority must be PostgreSQL")
+          if authorities.get("artifacts") != "r2":
+              raise SystemExit("artifact authority must be R2")
+          if authorities.get("realtime_session_coordination") != "durable_objects":
+              raise SystemExit("realtime/session authority must be Durable Objects")
+
+          policy = data.get("policy") or {}
+          if policy.get("allow_d1") is not False:
+              raise SystemExit("production foundation must forbid D1")
+          if policy.get("allow_dual_write") is not False:
+              raise SystemExit("production foundation must forbid dual-write")
+
+          if (data.get("security") or {}).get("require_two_factor") is not True:
+              raise SystemExit("production foundation must require 2FA")
+
+          ready = data.get("deployment_ready") is True
+          blockers = data.get("readiness_blockers")
+          if not isinstance(blockers, list):
+              raise SystemExit("readiness_blockers must be an array")
+          if ready and blockers:
+              raise SystemExit("deployment_ready cannot be true while blockers remain")
+          if not ready and not blockers:
+              raise SystemExit("fail-closed foundation requires explicit blockers while not ready")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"account_id={account_id}\n")
+              output.write(f"deployment_ready={'true' if ready else 'false'}\n")
+
+          print(
+              "Cloudflare production deploy is "
+              + ("READY" if ready else f"BLOCKED ({len(blockers)} explicit blockers)")
+          )
+          PY
+
+  deploy:
+    needs: foundation
+    if: ${{ needs.foundation.result == 'success' && needs.foundation.outputs.deployment_ready == 'true' }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: cloudflare-v3
     env:
-      CLOUDFLARE_ACCOUNT_ID: ac1ca1b50d09c7a4cb81274d2aa1e78f
+      CLOUDFLARE_ACCOUNT_ID: ${{ needs.foundation.outputs.account_id }}
     steps:
       - name: Checkout exact successful source
         uses: actions/checkout@v4
@@ -50,7 +117,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
           if ! test -n "$CLOUDFLARE_API_TOKEN"; then
-            echo "::error::Set CLOUDFLARE_API_TOKEN in the cloudflare-v3 GitHub environment with the existing Worker deployment permissions. No deployment was attempted."
+            echo "::error::Set CLOUDFLARE_API_TOKEN in the cloudflare-v3 GitHub environment with least-privilege deployment authority for the dedicated OrdaX account. No deployment was attempted."
             exit 1
           fi
 

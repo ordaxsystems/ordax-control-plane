@@ -11,6 +11,7 @@ WORKER_NAME="${ORDAX_CLOUDFLARE_WORKER_NAME:-ordax-control-plane-v3}"
 WORKERS_SUBDOMAIN="${ORDAX_CLOUDFLARE_SUBDOMAIN:-}"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CLOUDFLARE_DIR="$ROOT/control-plane/cloudflare"
+FOUNDATION_FILE="$CLOUDFLARE_DIR/production-foundation.json"
 TEMP_ROOT="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 GENERATED_CONFIG="$TEMP_ROOT/ordax-wrangler.generated.jsonc"
 SECRETS_FILE="$TEMP_ROOT/ordax-wrangler.secrets.json"
@@ -58,6 +59,28 @@ print(ids[0])
     echo "Cloudflare account could not be resolved unambiguously; set CLOUDFLARE_ACCOUNT_ID explicitly" >&2
     exit 2
   fi
+fi
+
+TARGET_ACCOUNT_ID="$(python - "$FOUNDATION_FILE" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+data = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+account_id = str(data.get("account_id") or "")
+if re.fullmatch(r"[0-9a-f]{32}", account_id) is None:
+    raise SystemExit("invalid canonical Cloudflare account_id")
+if data.get("policy", {}).get("allow_d1") is not False:
+    raise SystemExit("production foundation must forbid D1")
+print(account_id)
+PY
+)"
+
+if [[ "$CLOUDFLARE_ACCOUNT_ID" == "$TARGET_ACCOUNT_ID" ]]; then
+  echo "Refusing legacy D1 bootstrap on the dedicated OrdaX Cloudflare account." >&2
+  echo "The destination foundation is PostgreSQL/Hyperdrive + R2 + Durable Objects only." >&2
+  exit 3
 fi
 
 echo "Resolving workers.dev account subdomain"
