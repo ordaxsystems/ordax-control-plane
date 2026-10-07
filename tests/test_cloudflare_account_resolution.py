@@ -7,6 +7,7 @@ WORKFLOW = ROOT / ".github" / "workflows" / "cloudflare-v3-deploy.yml"
 BOOTSTRAP = ROOT / "scripts" / "cloudflare" / "deploy-v3.sh"
 ROUTINE_DEPLOY = ROOT / "scripts" / "cloudflare" / "deploy-production-v3.sh"
 FOUNDATION = ROOT / "control-plane" / "cloudflare" / "production-foundation.json"
+POSTGRES_ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 
 OLD_ACCOUNT_ID = "ac1ca1b50d09c7a4cb81274d2aa1e78f"
 DEDICATED_ACCOUNT_ID = "42586bf13b61436219d21def299833e4"
@@ -25,6 +26,24 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertFalse(foundation["policy"]["allow_d1"])
         self.assertFalse(foundation["policy"]["allow_dual_write"])
         self.assertTrue(foundation["security"]["require_two_factor"])
+        self.assertEqual(foundation["postgres"]["runtime_transport"], "hyperdrive")
+        self.assertEqual(foundation["postgres"]["hyperdrive_binding"], "POSTGRES")
+        self.assertEqual(foundation["postgres"]["query_cache"], "disabled")
+        self.assertIn(
+            "SUPABASE_SERVER_KEY",
+            foundation["policy"]["forbidden_runtime_secrets"],
+        )
+        self.assertIn(
+            "SUPABASE_SERVICE_ROLE_KEY",
+            foundation["policy"]["forbidden_runtime_secrets"],
+        )
+
+    def test_legacy_rest_adapter_keeps_production_blocked_until_hyperdrive_cutover(self):
+        foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
+        adapter = POSTGRES_ADAPTER.read_text(encoding="utf-8")
+        blockers = set(foundation["readiness_blockers"])
+        if "SUPABASE_SERVER_KEY" in adapter or "/rest/v1/rpc/" in adapter:
+            self.assertIn("worker_hyperdrive_adapter_not_implemented", blockers)
 
     def test_routine_workflow_reads_account_from_single_source_of_truth(self):
         workflow = WORKFLOW.read_text(encoding="utf-8-sig")
@@ -36,6 +55,10 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertIn("needs.foundation.outputs.deployment_ready == 'true'", workflow)
         self.assertIn("secrets.CLOUDFLARE_API_TOKEN", workflow)
         self.assertNotIn("secrets.ORDAX_OPERATOR_TOKEN", workflow)
+        self.assertIn('runtime_transport") != "hyperdrive"', workflow)
+        self.assertIn('hyperdrive_binding") != "POSTGRES"', workflow)
+        self.assertIn('query_cache") != "disabled"', workflow)
+        self.assertIn("generic Supabase server secrets must be forbidden", workflow)
 
     def test_not_ready_foundation_skips_deploy_instead_of_creating_false_incident(self):
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
