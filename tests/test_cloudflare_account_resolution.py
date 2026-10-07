@@ -65,6 +65,8 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         security = foundation["live_evidence"]["security"]
         self.assertTrue(security["member_two_factor_enabled"])
         self.assertNotIn("cloudflare_2fa_not_enabled", foundation["readiness_blockers"])
+        self.assertEqual(foundation["postgres"]["runtime_role"], "ordax_edge_runtime")
+        self.assertEqual(foundation["postgres"]["executor_role"], "ordax_edge_executor")
         self.assertEqual(foundation["postgres"]["runtime_transport"], "hyperdrive")
         self.assertEqual(foundation["postgres"]["hyperdrive_binding"], "POSTGRES")
         self.assertEqual(foundation["postgres"]["query_cache"], "disabled")
@@ -98,6 +100,14 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         blockers = set(foundation["readiness_blockers"])
         self.assertEqual(foundation["r2_bucket"], "ordax-device-artifacts")
         self.assertNotIn("cloudflare_r2_not_enabled", blockers)
+        self.assertNotIn("postgres_runtime_login_not_provisioned", blockers)
+        runtime = foundation["live_evidence"]["postgres_runtime"]
+        self.assertTrue(runtime["login"])
+        self.assertTrue(runtime["has_password"])
+        self.assertTrue(runtime["inherits_executor"])
+        self.assertEqual(runtime["direct_table_grants"], 0)
+        self.assertEqual(runtime["direct_routine_grants"], 0)
+        self.assertEqual(runtime["security_advisor_findings"], 0)
         self.assertNotIn("r2_bucket_not_provisioned", blockers)
         r2 = foundation["live_evidence"]["r2"]
         self.assertTrue(r2["enabled"])
