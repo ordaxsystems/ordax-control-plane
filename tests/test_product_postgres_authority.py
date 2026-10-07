@@ -1,4 +1,6 @@
 from pathlib import Path
+import hashlib
+import json
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -8,6 +10,7 @@ REMOTE_ROLE_HARDENING = ROOT / "control-plane" / "supabase" / "migrations" / "20
 CAPABILITY_V2 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007184500_product_capability_contract_v2.sql"
 GRANT_GROUPS_V2 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007185000_product_grant_groups_v2.sql"
 PRODUCT_SERVICE_ROLE_FAIL_CLOSED = ROOT / "control-plane" / "supabase" / "migrations" / "20261007190000_product_service_role_fail_closed.sql"
+MIGRATION_REGISTRY = ROOT / "control-plane" / "supabase" / "migration-registry.json"
 ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 
 
@@ -20,6 +23,7 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         cls.capability_v2 = CAPABILITY_V2.read_text(encoding="utf-8")
         cls.grant_groups_v2 = GRANT_GROUPS_V2.read_text(encoding="utf-8")
         cls.product_service_role_fail_closed = PRODUCT_SERVICE_ROLE_FAIL_CLOSED.read_text(encoding="utf-8")
+        cls.migration_registry = json.loads(MIGRATION_REGISTRY.read_text(encoding="utf-8"))
         cls.adapter = ADAPTER.read_text(encoding="utf-8")
 
     def test_device_scope_never_requires_synthetic_project(self) -> None:
@@ -219,6 +223,83 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
                 lowered,
             )
         self.assertNotIn("grant ", lowered)
+
+    def test_migration_registry_pins_canonical_database_and_history(self) -> None:
+        registry = self.migration_registry
+        self.assertEqual(
+            registry["canonical_database"]["project_ref"],
+            "jhfphsjptrpmtnzkpwud",
+        )
+        self.assertEqual(registry["canonical_database"]["region"], "sa-east-1")
+        self.assertFalse(
+            registry["policy"]["additional_historical_migrations_are_authorized_for_replay"]
+        )
+        self.assertFalse(registry["policy"]["reapply_applied_migration_allowed"])
+        self.assertFalse(registry["policy"]["merge_with_pending_registry_entry_allowed"])
+
+        entries = registry["migrations"]
+        self.assertTrue(entries)
+        self.assertTrue(all(entry["state"] == "applied" for entry in entries))
+        self.assertEqual(
+            len({entry["name"] for entry in entries}),
+            len(entries),
+        )
+        self.assertEqual(
+            len({entry["applied_version"] for entry in entries}),
+            len(entries),
+        )
+
+    def test_registry_pins_every_canonical_migration_git_blob(self) -> None:
+        migrations_root = ROOT / "control-plane" / "supabase" / "migrations"
+        entries = {
+            entry["name"]: entry
+            for entry in self.migration_registry["migrations"]
+            if entry["source"]["repository"] == "washingtonmsdj/ordax-control-plane"
+        }
+        source_files = sorted(migrations_root.glob("*.sql"))
+        self.assertEqual(
+            {path.stem for path in source_files},
+            set(entries),
+        )
+
+        for path in source_files:
+            data = path.read_bytes()
+            git_blob = hashlib.sha1(
+                f"blob {len(data)}\0".encode("utf-8") + data
+            ).hexdigest()
+            self.assertEqual(
+                git_blob,
+                entries[path.stem]["source"]["blob_sha"],
+                path.name,
+            )
+
+    def test_registry_only_whitelists_historical_bootstrap_0001_to_0007(self) -> None:
+        historical = [
+            entry
+            for entry in self.migration_registry["migrations"]
+            if entry["source"]["repository"] == "washingtonmsdj/prototipo-ordax-os"
+        ]
+        self.assertEqual(
+            [entry["name"] for entry in historical],
+            [
+                "0001_product_foundation",
+                "0002_product_foundation_indexes",
+                "0003_spaces_single_profile_pack_owner",
+                "0004_server_authoritative_mutations",
+                "0005_private_indexes_and_active_pack_catalog",
+                "0006_projects_devices_remote_grants",
+                "0007_projects_devices_fk_indexes",
+            ],
+        )
+        self.assertTrue(
+            all(
+                entry["ledger_source_relation"] in {
+                    "exact",
+                    "sql-equivalent-format-or-comment-only",
+                }
+                for entry in self.migration_registry["migrations"]
+            )
+        )
 
 
 if __name__ == "__main__":
