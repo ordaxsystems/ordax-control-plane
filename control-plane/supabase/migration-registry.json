@@ -340,6 +340,17 @@
         "path": "control-plane/supabase/migrations/20261007200000_edge_runtime_login_v1.sql",
         "blob_sha": "91b94f0076f61fe3c84a90f420f0ada2dca9844c"
       }
+    },
+    {
+      "name": "20261007201000_artifact_authority_v1",
+      "applied_version": null,
+      "state": "pending",
+      "ledger_source_relation": "pending",
+      "source": {
+        "repository": "ordaxsystems/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007201000_artifact_authority_v1.sql",
+        "blob_sha": "3bd6df1fe236df8860e48383a33fd9482ed0d35c"
+      }
     }
   ]
 }
