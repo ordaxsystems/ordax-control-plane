@@ -36,18 +36,6 @@ LEGACY_D1_MIGRATION_ALLOWLIST = {
     "0007_product_device_pairing.sql",
     "0008_product_device_owner.sql",
 }
-LEGACY_D1_TABLE_ALLOWLIST = {
-    "ordax_devices",
-    "ordax_jobs",
-    "ordax_job_events",
-    "ordax_artifacts",
-    "ordax_artifact_uploads",
-    "ordax_product_grants",
-    "ordax_product_audit",
-    "ordax_product_action_requests",
-    "ordax_product_device_pairings",
-    "ordax_product_device_links",
-}
 LEGACY_OPERATOR_HANDLER_ALLOWLIST = {
     "createProductGrant",
     "createProductGrantFromLink",
@@ -136,6 +124,12 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
                 )
 
         migrations = {path.name for path in CLOUDFLARE_MIGRATIONS.glob("*.sql")}
+        cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
+        mapped_tables = {
+            table
+            for domain in cutover["domains"]
+            for table in domain["legacy_tables"]
+        }
 
         self.assertTrue(
             d1_sources.issubset(LEGACY_D1_SOURCE_ALLOWLIST),
@@ -146,8 +140,8 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
             f"new D1 migrations are forbidden: {sorted(migrations - LEGACY_D1_MIGRATION_ALLOWLIST)}",
         )
         self.assertTrue(
-            referenced_tables.issubset(LEGACY_D1_TABLE_ALLOWLIST),
-            f"new D1 tables are forbidden: {sorted(referenced_tables - LEGACY_D1_TABLE_ALLOWLIST)}",
+            referenced_tables.issubset(mapped_tables),
+            f"new D1 tables are forbidden: {sorted(referenced_tables - mapped_tables)}",
         )
 
         if d1_sources or migrations:
