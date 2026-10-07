@@ -197,6 +197,24 @@ only name, state and metadata.
 No environment LOGIN member is provisioned by the database baseline. Wiring a
 runtime credential to this executor is a separate deployment gate.
 
+## Project authority
+
+Project identity mutations use a dedicated NOLOGIN/NOINHERIT
+`ordax_project_executor`. The role has no direct relation authority and may
+execute only the reviewed create/update Project RPCs.
+
+Projects are provider-neutral Space-scoped identities. Creation requires an
+active Space plus Space-admin authority. `created_by_user_id` is immutable
+provenance, not a second owner. Project `kind` is fixed at creation; update may
+change name, state and metadata. Archiving is the lifecycle boundary instead of
+a generic delete RPC.
+
+Repository connections remain a separate read-only metadata surface. The
+database enforces explicit GitHub repository selection (positive installation
+and repository IDs plus bounded `owner/repository` full name) and one selected
+GitHub repository per Project. No connection mutation RPC is created until the
+separate approval/audit gateway exists.
+
 ## Grant groups and target projection
 
 Remote capabilities are replaced and revoked as explicit grant groups. The
