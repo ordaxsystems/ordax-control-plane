@@ -329,6 +329,17 @@
         "path": "control-plane/supabase/migrations/20261007194500_memory_authority_v1.sql",
         "blob_sha": "02c92d2fdf0e6cfec0623f17d049a6ba636e4897"
       }
+    },
+    {
+      "name": "20261007200000_edge_runtime_login_v1",
+      "applied_version": "20261007230346",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "ordaxsystems/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007200000_edge_runtime_login_v1.sql",
+        "blob_sha": "91b94f0076f61fe3c84a90f420f0ada2dca9844c"
+      }
     }
   ]
 }
