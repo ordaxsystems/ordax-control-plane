@@ -81,6 +81,25 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
             "product_auth_metadata_not_repointed",
             foundation["readiness_blockers"],
         )
+        self.assertEqual(
+            foundation["deployment"]["bootstrap_authority"],
+            "temporary_workers_product_admin",
+        )
+        self.assertEqual(
+            foundation["deployment"]["routine_authority"],
+            "existing_worker_editor",
+        )
+        self.assertTrue(
+            foundation["deployment"]["routine_requires_existing_worker"],
+        )
+        blockers = set(foundation["readiness_blockers"])
+        self.assertIn("r2_bucket_not_provisioned", blockers)
+        self.assertIn("worker_not_provisioned", blockers)
+        self.assertIn(
+            "cloudflare_ci_worker_editor_token_not_provisioned",
+            blockers,
+        )
+        self.assertNotIn("cloudflare_ci_token_not_rotated", blockers)
 
     def test_legacy_d1_surface_is_frozen_while_cutover_is_incomplete(self):
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))

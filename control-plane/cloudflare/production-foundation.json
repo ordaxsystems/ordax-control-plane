@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "account_id": "42586bf13b61436219d21def299833e4",
   "worker_name": "ordax-control-plane-v3",
   "r2_bucket": "ordax-device-artifacts",
@@ -38,12 +38,19 @@
   "deployment_ready": false,
   "readiness_blockers": [
     "cloudflare_r2_not_enabled",
+    "r2_bucket_not_provisioned",
     "hyperdrive_not_provisioned",
     "postgres_runtime_login_not_provisioned",
     "worker_hyperdrive_adapter_not_implemented",
     "worker_d1_cutover_incomplete",
-    "cloudflare_ci_token_not_rotated",
+    "worker_not_provisioned",
+    "cloudflare_ci_worker_editor_token_not_provisioned",
     "cloudflare_2fa_not_enabled"
   ],
-  "workers_dev_subdomain": "ordaxsystems"
+  "workers_dev_subdomain": "ordaxsystems",
+  "deployment": {
+    "bootstrap_authority": "temporary_workers_product_admin",
+    "routine_authority": "existing_worker_editor",
+    "routine_requires_existing_worker": true
+  }
 }
