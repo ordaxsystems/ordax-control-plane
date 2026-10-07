@@ -1,6 +1,6 @@
 {
   "$schema": "ordax-control-plane.repository-migration/1",
-  "status": "owner-transfer-complete-validation-pending",
+  "status": "owner-cutover-complete-deploy-environment-proof-pending",
   "repository_id": "1406415892",
   "repository_name_changes_during_transfer": false,
   "redirect_dependency_allowed": false,
@@ -24,16 +24,26 @@
     "open-prs-audited",
     "main-sha-recorded",
     "ci-green-before-transfer",
-    "repository-transfer-complete"
+    "repository-transfer-complete",
+    "control-plane-ci-green-after-transfer",
+    "consumer-references-repointed"
   ],
   "pending_requirements": [
-    "control-plane-ci-green-after-transfer",
-    "github-environments-and-deploy-credentials-revalidated",
-    "consumer-references-repointed"
+    "github-environments-and-deploy-credentials-revalidated"
   ],
   "transfer_observed": {
     "repository_id": "1406415892",
     "owner": "ordaxsystems",
     "repository": "ordax-control-plane"
+  },
+  "validation_evidence": {
+    "control_plane_post_transfer_main": "a54af5edd3d695e3e9a0cfe012494a879d07d9c1",
+    "control_plane_ci_run": 37689203490,
+    "control_plane_ci": "PASS",
+    "deploy_workflow_run": 37689255485,
+    "deploy_foundation": "PASS",
+    "deploy_job": "SKIPPED_FAIL_CLOSED",
+    "apps_consumer_repoint_main": "01a8e45a76da214c664cb9c4f78837fe04f91fb0",
+    "central_ssot_repoint_main": "b7d1ab3346130d2d371dcf594fb245dd3bc6e6b7"
   }
 }
