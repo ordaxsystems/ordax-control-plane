@@ -120,6 +120,9 @@ jobs:
             test "$(git rev-parse HEAD)" = "${{ github.event.workflow_run.head_sha }}"
           fi
 
+      - name: Install pinned Worker runtime dependency
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false --prefix control-plane/cloudflare
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
