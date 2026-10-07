@@ -11,6 +11,10 @@ binding = "DB"
 database_name = "ordax-control-plane-v3-ci"
 database_id = "00000000000000000000000000000000"
 
+[[hyperdrive]]
+binding = "POSTGRES"
+id = "00000000000000000000000000000000"
+
 [[r2_buckets]]
 binding = "ARTIFACTS"
 bucket_name = "ordax-device-artifacts-ci"
