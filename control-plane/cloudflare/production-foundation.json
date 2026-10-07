@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "account_id": "42586bf13b61436219d21def299833e4",
   "worker_name": "ordax-control-plane-v3",
   "r2_bucket": "ordax-device-artifacts",
@@ -51,8 +51,19 @@
   ],
   "workers_dev_subdomain": "ordaxsystems",
   "deployment": {
-    "bootstrap_authority": "temporary_workers_product_admin",
-    "routine_authority": "existing_worker_editor",
-    "routine_requires_existing_worker": true
+    "bootstrap": {
+      "scope": "workers_product",
+      "role": "admin",
+      "temporary": true,
+      "purpose": "create_initial_worker"
+    },
+    "routine": {
+      "scope": "individual_worker",
+      "role": "editor",
+      "worker_name": "ordax-control-plane-v3",
+      "requires_existing_worker": true
+    },
+    "zone_workers_routes_write_required": false,
+    "bound_resource_direct_access_required": false
   }
 }

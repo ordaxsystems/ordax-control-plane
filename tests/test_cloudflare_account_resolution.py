@@ -93,17 +93,16 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
             "product_auth_metadata_not_repointed",
             foundation["readiness_blockers"],
         )
-        self.assertEqual(
-            foundation["deployment"]["bootstrap_authority"],
-            "temporary_workers_product_admin",
-        )
-        self.assertEqual(
-            foundation["deployment"]["routine_authority"],
-            "existing_worker_editor",
-        )
-        self.assertTrue(
-            foundation["deployment"]["routine_requires_existing_worker"],
-        )
+        deployment = foundation["deployment"]
+        self.assertEqual(deployment["bootstrap"]["scope"], "workers_product")
+        self.assertEqual(deployment["bootstrap"]["role"], "admin")
+        self.assertTrue(deployment["bootstrap"]["temporary"])
+        self.assertEqual(deployment["routine"]["scope"], "individual_worker")
+        self.assertEqual(deployment["routine"]["role"], "editor")
+        self.assertEqual(deployment["routine"]["worker_name"], foundation["worker_name"])
+        self.assertTrue(deployment["routine"]["requires_existing_worker"])
+        self.assertFalse(deployment["zone_workers_routes_write_required"])
+        self.assertFalse(deployment["bound_resource_direct_access_required"])
         blockers = set(foundation["readiness_blockers"])
         self.assertIn("r2_bucket_not_provisioned", blockers)
         self.assertIn("worker_not_provisioned", blockers)
