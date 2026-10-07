@@ -263,6 +263,28 @@
         "path": "control-plane/supabase/migrations/20261007191500_public_schema_usage_fail_closed.sql",
         "blob_sha": "c3516c9859ad23066eba78510fd52a022cab4ab6"
       }
+    },
+    {
+      "name": "20261007192000_remove_dead_authenticated_mutation_policies",
+      "applied_version": "20261007203644",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007192000_remove_dead_authenticated_mutation_policies.sql",
+        "blob_sha": "ea8869f4dd82c93635803e6639e3aa41dfb51424"
+      }
+    },
+    {
+      "name": "20261007192500_subject_authorization_ssot_v1",
+      "applied_version": "20261007203648",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "washingtonmsdj/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007192500_subject_authorization_ssot_v1.sql",
+        "blob_sha": "2a9203ebced6c97cc2d125f051306e373411b0d9"
+      }
     }
   ]
 }

@@ -163,6 +163,26 @@ Any intentional Data API or server exposure must therefore be granted explicitly
 in the same versioned migration that creates or changes the object. RLS and SQL
 privileges are separate controls; both must remain correct.
 
+## Server-authoritative mutation policies
+
+Authenticated users retain only the table privileges intentionally exposed for
+reads and the narrow account display-name update. Dead INSERT/UPDATE/DELETE RLS
+policies from the original direct-client foundation are removed once matching
+table DML is revoked, so a future accidental GRANT cannot resurrect a hidden
+client mutation API.
+
+## Subject-aware authorization SSOT
+
+Server executors must authorize an explicit subject without impersonating
+`auth.uid()`. The canonical private helpers therefore centralize Space access,
+Space administration, Project access and Product Device access around
+`(subject_user_id, resource_id)`.
+
+Existing RLS functions remain thin `auth.uid()` wrappers over those helpers.
+The subject-aware helpers are not executable by `anon`, `authenticated`,
+`service_role` or `ordax_edge_executor`; they are internal authorization
+building blocks for reviewed SECURITY DEFINER boundaries.
+
 ## Grant groups and target projection
 
 Remote capabilities are replaced and revoked as explicit grant groups. The
