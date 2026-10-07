@@ -75,13 +75,13 @@ O deploy rotineiro resolve o subdomínio ao vivo; não existe fallback para host
 
 O bucket canônico é definido pelo foundation como `ordax-device-artifacts`.
 
-Estado atual da conta dedicada: R2 ainda precisa ser habilitado administrativamente pelo Dashboard. A API retorna `10042: Please enable R2 through the Cloudflare Dashboard` e o OpenAPI atual não oferece operação de ativação da conta R2.
+Estado atual da conta dedicada: R2 está habilitado e o único bucket canônico `ordax-device-artifacts` foi provisionado em classe Standard, jurisdição default. A API confirmou o bucket ao vivo após a criação.
 
-Depois de habilitado:
+Regras permanentes:
 
-1. criar somente o bucket canônico;
-2. manter bytes no R2;
-3. manter metadata persistente no PostgreSQL;
+1. manter bytes no R2;
+2. manter metadata persistente no PostgreSQL;
+3. não criar segundo bucket como authority paralela;
 4. não usar D1 ou Durable Objects como novo SSOT de artifacts.
 
 O fluxo legado de metadata/multipart ainda depende de D1 e será removido no cutover, não duplicado.
@@ -176,8 +176,6 @@ O blocker atual é a dependência `catalogo-media`, que pertence a Catálogo/Ach
 
 A lista executável está somente em `production-foundation.json`. No estado atual ela inclui:
 
-- R2 ainda não habilitado;
-- bucket R2 canônico ainda não provisionado;
 - Hyperdrive ainda não provisionado;
 - runtime LOGIN PostgreSQL ainda não provisionado;
 - adapter Worker -> Hyperdrive ainda não implementado;
