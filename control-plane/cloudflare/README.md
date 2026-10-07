@@ -126,6 +126,24 @@ Como o Worker ainda não existe, o bootstrap e o CI permanente são autoridades 
 
 Não adicionar fallback para account antigo, Worker antigo ou D1 antigo.
 
+## Autenticação operacional legada
+
+O bearer global `ORDAX_OPERATOR_TOKEN` é legado e não pode crescer.
+
+A superfície atual está congelada por teste nos handlers:
+
+- `createProductGrant`;
+- `createProductGrantFromLink`;
+- `listProductGrants`;
+- `resolveProductGrantAdmin`;
+- `revokeProductGrant`;
+- `provisionDevice`;
+- `deleteDevice`;
+- `enqueueJob`;
+- `getJob`.
+
+Novos handlers não podem chamar `operatorAuthorized()`. A allowlist só deve encolher conforme cada rota migra para authority autenticada e least-privilege. Se a superfície mudar, a CI exige atualização explícita do contrato.
+
 ## Segurança
 
 Regras permanentes:

@@ -47,6 +47,17 @@ LEGACY_D1_TABLE_ALLOWLIST = {
     "ordax_product_device_pairings",
     "ordax_product_device_links",
 }
+LEGACY_OPERATOR_HANDLER_ALLOWLIST = {
+    "createProductGrant",
+    "createProductGrantFromLink",
+    "listProductGrants",
+    "resolveProductGrantAdmin",
+    "revokeProductGrant",
+    "provisionDevice",
+    "deleteDevice",
+    "enqueueJob",
+    "getJob",
+}
 
 
 class CloudflareAccountResolutionContractTests(unittest.TestCase):
@@ -168,6 +179,22 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         if "ORDAX_OPERATOR_TOKEN" in source or "operatorAuthorized(" in source:
             self.assertIn("worker_operator_auth_cutover_incomplete", blockers)
             self.assertIn("ORDAX_OPERATOR_TOKEN", forbidden)
+
+    def test_legacy_operator_surface_is_frozen_until_authority_cutover(self):
+        source = WORKER_SOURCE.read_text(encoding="utf-8")
+        handler_pattern = re.compile(
+            r"(?:async\s+)?function\s+([A-Za-z0-9_]+)\s*\([^)]*\)[^{]*\{([\s\S]*?)(?=\n(?:async\s+)?function\s+[A-Za-z0-9_]+\s*\(|\Z)"
+        )
+        operator_handlers = {
+            name
+            for name, body in handler_pattern.findall(source)
+            if "operatorAuthorized(request, env)" in body
+        }
+        self.assertEqual(
+            operator_handlers,
+            LEGACY_OPERATOR_HANDLER_ALLOWLIST,
+            "ORDAX_OPERATOR_TOKEN surface changed; new legacy bearer usage is forbidden and removals must update the allowlist",
+        )
 
     def test_legacy_rest_adapter_keeps_production_blocked_until_hyperdrive_cutover(self):
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
