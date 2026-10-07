@@ -1,4 +1,5 @@
 import json
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -7,6 +8,7 @@ WORKFLOW = ROOT / ".github" / "workflows" / "cloudflare-v3-deploy.yml"
 BOOTSTRAP = ROOT / "scripts" / "cloudflare" / "deploy-v3.sh"
 ROUTINE_DEPLOY = ROOT / "scripts" / "cloudflare" / "deploy-production-v3.sh"
 FOUNDATION = ROOT / "control-plane" / "cloudflare" / "production-foundation.json"
+WRANGLER = ROOT / "control-plane" / "cloudflare" / "wrangler.toml"
 POSTGRES_ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 
 OLD_ACCOUNT_ID = "ac1ca1b50d09c7a4cb81274d2aa1e78f"
@@ -37,6 +39,32 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
             "SUPABASE_SERVICE_ROLE_KEY",
             foundation["policy"]["forbidden_runtime_secrets"],
         )
+        self.assertEqual(foundation["workers_dev_subdomain"], "ordaxsystems")
+        self.assertNotIn(
+            "workers_dev_subdomain_not_initialized",
+            foundation["readiness_blockers"],
+        )
+        self.assertNotIn(
+            "product_auth_metadata_not_repointed",
+            foundation["readiness_blockers"],
+        )
+
+    def test_product_auth_metadata_is_derived_from_canonical_project_ref(self):
+        foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
+        with WRANGLER.open("rb") as handle:
+            wrangler = tomllib.load(handle)
+        project_ref = foundation["postgres"]["project_ref"]
+        auth_origin = f"https://{project_ref}.supabase.co/auth/v1"
+        self.assertEqual(
+            wrangler["vars"]["PRODUCT_AUTH_ISSUER"],
+            auth_origin,
+        )
+        self.assertEqual(
+            wrangler["vars"]["PRODUCT_AUTH_JWKS_URL"],
+            f"{auth_origin}/.well-known/jwks.json",
+        )
+        self.assertEqual(wrangler["vars"]["PRODUCT_AUTH_AUDIENCE"], "authenticated")
+        self.assertNotIn("eobcxuyvhkvdmkbaihwh", WRANGLER.read_text(encoding="utf-8"))
 
     def test_legacy_rest_adapter_keeps_production_blocked_until_hyperdrive_cutover(self):
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))

@@ -16,9 +16,9 @@ invocation_logs = true
 crons = ["17 3 * * *"]
 
 [vars]
-PRODUCT_AUTH_ISSUER = "https://eobcxuyvhkvdmkbaihwh.supabase.co/auth/v1"
+PRODUCT_AUTH_ISSUER = "https://jhfphsjptrpmtnzkpwud.supabase.co/auth/v1"
 PRODUCT_AUTH_AUDIENCE = "authenticated"
-PRODUCT_AUTH_JWKS_URL = "https://eobcxuyvhkvdmkbaihwh.supabase.co/auth/v1/.well-known/jwks.json"
+PRODUCT_AUTH_JWKS_URL = "https://jhfphsjptrpmtnzkpwud.supabase.co/auth/v1/.well-known/jwks.json"
 
 [[d1_databases]]
 binding = "DB"
