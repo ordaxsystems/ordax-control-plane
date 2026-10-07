@@ -16,7 +16,10 @@ class RepositoryNamespaceMigrationTests(unittest.TestCase):
             self.contract["$schema"],
             "ordax-control-plane.repository-migration/1",
         )
-        self.assertEqual(\n            self.contract["status"],\n            "owner-transfer-complete-validation-pending",\n        )
+        self.assertEqual(
+            self.contract["status"],
+            "owner-transfer-complete-validation-pending",
+        )
         self.assertEqual(self.contract["repository_id"], "1406415892")
         self.assertEqual(
             self.contract["previous_repository"],
