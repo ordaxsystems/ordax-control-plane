@@ -1,8 +1,9 @@
+import postgres from "postgres";
+
 type JsonObject = Record<string, unknown>;
 
 export interface ProductPostgresEnv {
-  SUPABASE_URL?: string;
-  SUPABASE_SERVER_KEY?: string;
+  POSTGRES?: Hyperdrive;
 }
 
 export type ProductRemoteJob = {
@@ -46,74 +47,207 @@ export class ProductPostgresError extends Error {
   }
 }
 
-const RPC_TIMEOUT_MS = 10_000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function configuredOrigin(env: ProductPostgresEnv): URL | null {
-  const raw = (env.SUPABASE_URL ?? "").trim();
+const RPC_SPECS = {
+  ordax_enqueue_product_action_v1: {
+    keys: [
+      "p_owner_user_id",
+      "p_space_id",
+      "p_project_id",
+      "p_device_id",
+      "p_client_kind",
+      "p_capability",
+      "p_access_mode",
+      "p_payload",
+      "p_idempotency_key",
+      "p_expires_at",
+    ],
+    casts: ["uuid", "uuid", "uuid", "uuid", "text", "text", "text", "jsonb", "text", "timestamptz"],
+  },
+  ordax_claim_product_action_v1: {
+    keys: ["p_device_id", "p_agent_instance_id", "p_boot_id", "p_lease_seconds"],
+    casts: ["uuid", "uuid", "text", "integer"],
+  },
+  ordax_start_product_action_v1: {
+    keys: [
+      "p_device_id",
+      "p_request_id",
+      "p_effect_id",
+      "p_attempt_id",
+      "p_lease_id",
+      "p_execution_epoch",
+      "p_agent_instance_id",
+      "p_boot_id",
+    ],
+    casts: ["uuid", "uuid", "uuid", "uuid", "uuid", "bigint", "uuid", "text"],
+  },
+  ordax_renew_product_action_lease_v1: {
+    keys: [
+      "p_device_id",
+      "p_request_id",
+      "p_effect_id",
+      "p_attempt_id",
+      "p_lease_id",
+      "p_execution_epoch",
+      "p_agent_instance_id",
+      "p_boot_id",
+      "p_lease_seconds",
+    ],
+    casts: ["uuid", "uuid", "uuid", "uuid", "uuid", "bigint", "uuid", "text", "integer"],
+    resultCast: "text",
+  },
+  ordax_progress_product_action_v1: {
+    keys: [
+      "p_device_id",
+      "p_request_id",
+      "p_effect_id",
+      "p_attempt_id",
+      "p_lease_id",
+      "p_execution_epoch",
+      "p_agent_instance_id",
+      "p_boot_id",
+      "p_stage",
+      "p_message",
+      "p_progress_percent",
+    ],
+    casts: ["uuid", "uuid", "uuid", "uuid", "uuid", "bigint", "uuid", "text", "text", "text", "smallint"],
+  },
+  ordax_report_product_action_v1: {
+    keys: [
+      "p_device_id",
+      "p_request_id",
+      "p_effect_id",
+      "p_attempt_id",
+      "p_lease_id",
+      "p_execution_epoch",
+      "p_agent_instance_id",
+      "p_boot_id",
+      "p_report_id",
+      "p_status",
+      "p_result",
+      "p_result_sha256",
+      "p_error_code",
+    ],
+    casts: ["uuid", "uuid", "uuid", "uuid", "uuid", "bigint", "uuid", "text", "uuid", "text", "jsonb", "text", "text"],
+  },
+  ordax_get_product_action_v1: {
+    keys: ["p_owner_user_id", "p_request_id"],
+    casts: ["uuid", "uuid"],
+  },
+  ordax_record_product_presence_v1: {
+    keys: [
+      "p_device_id",
+      "p_online",
+      "p_runtime_kind",
+      "p_agent_version",
+      "p_capability_digest",
+      "p_force",
+    ],
+    casts: ["uuid", "boolean", "text", "text", "text", "boolean"],
+  },
+  ordax_enroll_product_device_v1: {
+    keys: [
+      "p_owner_user_id",
+      "p_device_name",
+      "p_device_kind",
+      "p_channel",
+      "p_token_sha256",
+      "p_machine_binding_sha256",
+    ],
+    casts: ["uuid", "text", "text", "text", "text", "text"],
+  },
+  ordax_identify_product_device_v1: {
+    keys: ["p_token_sha256", "p_machine_binding_sha256"],
+    casts: ["text", "text"],
+  },
+  ordax_authenticate_product_device_v1: {
+    keys: ["p_device_id", "p_token_sha256"],
+    casts: ["uuid", "text"],
+  },
+  ordax_import_legacy_product_device_v1: {
+    keys: [
+      "p_device_id",
+      "p_owner_user_id",
+      "p_display_name",
+      "p_device_kind",
+      "p_channel",
+      "p_token_sha256",
+      "p_machine_binding_sha256",
+      "p_last_seen_at",
+    ],
+    casts: ["uuid", "uuid", "text", "text", "text", "text", "text", "timestamptz"],
+  },
+} as const;
+
+type RpcName = keyof typeof RPC_SPECS;
+
+function configuredConnectionString(env: ProductPostgresEnv): string | null {
+  const raw = (env.POSTGRES?.connectionString ?? "").trim();
   if (!raw) return null;
   try {
-    const url = new URL(raw);
-    if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") {
       return null;
     }
-    url.pathname = "/";
-    return url;
+    return raw;
   } catch {
     return null;
   }
 }
 
-function configuredServerKey(env: ProductPostgresEnv): string | null {
-  const key = (env.SUPABASE_SERVER_KEY ?? "").trim();
-  return key.startsWith("sb_secret_") && key.length >= 32 ? key : null;
+export function productPostgresConfigured(env: ProductPostgresEnv): boolean {
+  return configuredConnectionString(env) !== null;
 }
 
-export function productPostgresConfigured(env: ProductPostgresEnv): boolean {
-  return configuredOrigin(env) !== null && configuredServerKey(env) !== null;
+function encodeRpcValue(value: unknown, cast: string): unknown {
+  if (value === undefined) return null;
+  if (cast === "jsonb" && value !== null) return JSON.stringify(value);
+  return value;
 }
 
 async function callRpc<T>(
   env: ProductPostgresEnv,
-  rpc: string,
+  rpc: RpcName,
   payload: JsonObject,
 ): Promise<T> {
-  const origin = configuredOrigin(env);
-  const serverKey = configuredServerKey(env);
-  if (!origin || !serverKey) {
+  const connectionString = configuredConnectionString(env);
+  if (!connectionString) {
     throw new ProductPostgresError("product_postgres_unconfigured", 503);
   }
 
-  const endpoint = new URL(`/rest/v1/rpc/${rpc}`, origin);
-  let response: Response;
+  const spec = RPC_SPECS[rpc];
+  const args = spec.casts.map((cast, index) => `$${index + 1}::${cast}`).join(", ");
+  const resultCast = "resultCast" in spec ? `::${spec.resultCast}` : "";
+  const query = `select public.${rpc}(${args})${resultCast} as result`;
+  const values = spec.keys.map((key, index) =>
+    encodeRpcValue(payload[key], spec.casts[index])
+  );
+
+  const sql = postgres(connectionString, {
+    max: 1,
+    connect_timeout: 5,
+    idle_timeout: 1,
+    prepare: true,
+  });
+
   try {
-    response = await fetch(endpoint.toString(), {
-      method: "POST",
-      headers: {
-        apikey: serverKey,
-        accept: "application/json",
-        "content-type": "application/json; charset=utf-8",
-      },
-      body: JSON.stringify(payload),
-      redirect: "manual",
-      signal: AbortSignal.timeout(RPC_TIMEOUT_MS),
-    });
-  } catch {
+    const rows = await sql.unsafe(query, values);
+    const row = rows[0] as { result?: T } | undefined;
+    if (!row || !Object.prototype.hasOwnProperty.call(row, "result")) {
+      throw new ProductPostgresError("product_postgres_invalid_response", 502);
+    }
+    return row.result as T;
+  } catch (error) {
+    if (error instanceof ProductPostgresError) throw error;
     throw new ProductPostgresError("product_postgres_unavailable", 503);
-  }
-
-  if (!response.ok) {
-    // Never surface database/server details or the backend secret to Product clients.
-    throw new ProductPostgresError(
-      response.status >= 500 ? "product_postgres_unavailable" : "product_postgres_rejected",
-      response.status >= 500 ? 503 : 502,
-    );
-  }
-
-  try {
-    return await response.json() as T;
-  } catch {
-    throw new ProductPostgresError("product_postgres_invalid_response", 502);
+  } finally {
+    try {
+      await sql.end({ timeout: 1 });
+    } catch {
+      // Hyperdrive owns the upstream pool; connection cleanup must not mask
+      // the result of an already-completed authority call.
+    }
   }
 }
 
