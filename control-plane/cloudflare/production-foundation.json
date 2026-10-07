@@ -1,5 +1,5 @@
 {
-  "version": 6,
+  "version": 7,
   "account_id": "42586bf13b61436219d21def299833e4",
   "worker_name": "ordax-control-plane-v3",
   "r2_bucket": "ordax-device-artifacts",
@@ -38,8 +38,6 @@
   },
   "deployment_ready": false,
   "readiness_blockers": [
-    "cloudflare_r2_not_enabled",
-    "r2_bucket_not_provisioned",
     "hyperdrive_not_provisioned",
     "postgres_runtime_login_not_provisioned",
     "worker_hyperdrive_adapter_not_implemented",
@@ -65,5 +63,15 @@
     },
     "zone_workers_routes_write_required": false,
     "bound_resource_direct_access_required": false
+  },
+  "live_evidence": {
+    "r2": {
+      "enabled": true,
+      "bucket_name": "ordax-device-artifacts",
+      "storage_class": "Standard",
+      "jurisdiction": "default",
+      "location": "ENAM",
+      "observed_at": "2026-10-07T22:40:13.555Z"
+    }
   }
 }
