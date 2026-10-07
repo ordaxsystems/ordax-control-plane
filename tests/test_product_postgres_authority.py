@@ -10,6 +10,7 @@ REMOTE_ROLE_HARDENING = ROOT / "control-plane" / "supabase" / "migrations" / "20
 CAPABILITY_V2 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007184500_product_capability_contract_v2.sql"
 GRANT_GROUPS_V2 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007185000_product_grant_groups_v2.sql"
 PRODUCT_SERVICE_ROLE_FAIL_CLOSED = ROOT / "control-plane" / "supabase" / "migrations" / "20261007190000_product_service_role_fail_closed.sql"
+PUBLIC_SCHEMA_FAIL_CLOSED = ROOT / "control-plane" / "supabase" / "migrations" / "20261007191500_public_schema_usage_fail_closed.sql"
 MIGRATION_REGISTRY = ROOT / "control-plane" / "supabase" / "migration-registry.json"
 ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 
@@ -23,6 +24,7 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         cls.capability_v2 = CAPABILITY_V2.read_text(encoding="utf-8")
         cls.grant_groups_v2 = GRANT_GROUPS_V2.read_text(encoding="utf-8")
         cls.product_service_role_fail_closed = PRODUCT_SERVICE_ROLE_FAIL_CLOSED.read_text(encoding="utf-8")
+        cls.public_schema_fail_closed = PUBLIC_SCHEMA_FAIL_CLOSED.read_text(encoding="utf-8")
         cls.migration_registry = json.loads(MIGRATION_REGISTRY.read_text(encoding="utf-8"))
         cls.adapter = ADAPTER.read_text(encoding="utf-8")
 
@@ -223,6 +225,14 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
                 lowered,
             )
         self.assertNotIn("grant ", lowered)
+
+    def test_public_schema_is_opt_in_for_custom_roles(self) -> None:
+        lowered = self.public_schema_fail_closed.lower()
+        self.assertIn("revoke usage, create on schema public from public", lowered)
+        self.assertIn("required explicit role usage missing", lowered)
+        self.assertIn("public schema privilege survived", lowered)
+        self.assertIn("ordax_edge_executor", lowered)
+        self.assertIn("private", lowered)
 
     def test_migration_registry_pins_canonical_database_and_history(self) -> None:
         registry = self.migration_registry
