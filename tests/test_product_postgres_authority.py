@@ -3,6 +3,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATION = ROOT / "control-plane" / "supabase" / "migrations" / "20261007150000_product_remote_authority_v1.sql"
+HARDENING = ROOT / "control-plane" / "supabase" / "migrations" / "20261007152000_product_remote_authority_hardening.sql"
 ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 
 
@@ -10,6 +11,7 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.sql = MIGRATION.read_text(encoding="utf-8")
+        cls.hardening = HARDENING.read_text(encoding="utf-8")
         cls.adapter = ADAPTER.read_text(encoding="utf-8")
 
     def test_device_scope_never_requires_synthetic_project(self) -> None:
@@ -67,12 +69,24 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
                 f"revoke all on table {table}",
                 self.sql,
             )
+            self.assertIn(
+                f"alter table {table} enable row level security",
+                self.hardening,
+            )
         self.assertIn("from public, anon, authenticated, service_role", self.sql)
         self.assertIn(
             "grant execute on function public.ordax_enqueue_product_action_v1",
             self.sql,
         )
         self.assertIn("to service_role;", self.sql)
+
+    def test_product_action_foreign_keys_are_indexed(self) -> None:
+        for index_fragment in (
+            "ordax_product_action_project_space_idx",
+            "ordax_product_action_space_idx",
+            "ordax_product_action_grant_idx",
+        ):
+            self.assertIn(index_fragment, self.hardening)
 
     def test_presence_is_coalesced_instead_of_persisting_every_heartbeat(self) -> None:
         self.assertIn("ordax_record_product_presence_v1", self.sql)
