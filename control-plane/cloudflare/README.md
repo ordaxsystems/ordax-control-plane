@@ -134,6 +134,8 @@ Regras permanentes:
 - sem D1 novo;
 - sem dual-write;
 - sem backend secret genérico do Supabase no Worker de produção;
+- sem bearer global `ORDAX_OPERATOR_TOKEN` no Worker de produção;
+- rotas administrativas precisam de authority autenticada e least-privilege compatível com sua semântica;
 - credenciais runtime devem ser least-privilege;
 - token CI deve ser novo e dedicado à conta OrdaX;
 - 2FA é requisito de produção;
@@ -160,6 +162,7 @@ A lista executável está somente em `production-foundation.json`. No estado atu
 - runtime LOGIN PostgreSQL ainda não provisionado;
 - adapter Worker -> Hyperdrive ainda não implementado;
 - cutover D1 ainda incompleto;
+- autenticação operacional legada por `ORDAX_OPERATOR_TOKEN` ainda não removida/substituída;
 - Worker de produção ainda não provisionado;
 - token CI permanente Worker-scoped ainda não provisionado;
 - 2FA do account ainda não habilitado.
@@ -185,10 +188,11 @@ A ordem correta é:
 5. habilitar R2 e provisionar o bucket canônico;
 6. migrar somente artifacts necessários, com integridade;
 7. remover D1 do `wrangler.toml` e do runtime;
-8. criar o primeiro Worker com autoridade temporária de bootstrap;
-9. substituir a autoridade de bootstrap por token CI Editor somente naquele Worker e validar deploy/E2E;
-10. habilitar 2FA e enforcement de account;
-11. resolver a dependência DNS de Catálogo;
-12. somente depois executar cutover de `ordax.com.br`.
+8. remover/substituir `ORDAX_OPERATOR_TOKEN` por authorities explícitas;
+9. criar o primeiro Worker com autoridade temporária de bootstrap;
+10. substituir a autoridade de bootstrap por token CI Editor somente naquele Worker e validar deploy/E2E;
+11. habilitar 2FA e enforcement de account;
+12. resolver a dependência DNS de Catálogo;
+13. somente depois executar cutover de `ordax.com.br`.
 
 Sem delete antecipado na origem e sem paliativos para atravessar gates.

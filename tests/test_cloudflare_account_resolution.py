@@ -11,6 +11,7 @@ ROUTINE_DEPLOY = ROOT / "scripts" / "cloudflare" / "deploy-production-v3.sh"
 FOUNDATION = ROOT / "control-plane" / "cloudflare" / "production-foundation.json"
 WRANGLER = ROOT / "control-plane" / "cloudflare" / "wrangler.toml"
 POSTGRES_ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
+WORKER_SOURCE = ROOT / "control-plane" / "cloudflare" / "src" / "index.ts"
 CLOUDFLARE_SRC = ROOT / "control-plane" / "cloudflare" / "src"
 CLOUDFLARE_MIGRATIONS = ROOT / "control-plane" / "cloudflare" / "migrations"
 
@@ -158,6 +159,15 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         )
         self.assertEqual(wrangler["vars"]["PRODUCT_AUTH_AUDIENCE"], "authenticated")
         self.assertNotIn("eobcxuyvhkvdmkbaihwh", WRANGLER.read_text(encoding="utf-8"))
+
+    def test_legacy_operator_bearer_keeps_production_blocked(self):
+        foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
+        source = WORKER_SOURCE.read_text(encoding="utf-8")
+        blockers = set(foundation["readiness_blockers"])
+        forbidden = set(foundation["policy"]["forbidden_runtime_secrets"])
+        if "ORDAX_OPERATOR_TOKEN" in source or "operatorAuthorized(" in source:
+            self.assertIn("worker_operator_auth_cutover_incomplete", blockers)
+            self.assertIn("ORDAX_OPERATOR_TOKEN", forbidden)
 
     def test_legacy_rest_adapter_keeps_production_blocked_until_hyperdrive_cutover(self):
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
