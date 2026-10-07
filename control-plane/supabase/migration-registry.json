@@ -318,6 +318,17 @@
         "path": "control-plane/supabase/migrations/20261007194000_project_connection_contract_hardening_v1.sql",
         "blob_sha": "ead0b8928d273ab25b6fdb721331c40147fd227b"
       }
+    },
+    {
+      "name": "20261007194500_memory_authority_v1",
+      "applied_version": "20261007212746",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "ordaxsystems/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007194500_memory_authority_v1.sql",
+        "blob_sha": "02c92d2fdf0e6cfec0623f17d049a6ba636e4897"
+      }
     }
   ]
 }

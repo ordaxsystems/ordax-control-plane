@@ -215,6 +215,23 @@ and repository IDs plus bounded `owner/repository` full name) and one selected
 GitHub repository per Project. No connection mutation RPC is created until the
 separate approval/audit gateway exists.
 
+## Memory authority
+
+Durable Memory uses a dedicated NOLOGIN/NOINHERIT `ordax_memory_executor`
+with explicit EXECUTE only on reviewed Memory RPCs and no direct relation
+authority.
+
+The durable identity model is intentionally limited to `account`, `space`
+and `project`. Project-scoped memory uses the canonical `project_id` plus
+`space_id` foreign key; the old textual `project_ref` is removed. Device and
+session state are not stored as fake durable Memory scopes without canonical
+identity.
+
+Creation binds `owner_user_id` to the explicit actor. Space and Project
+scopes require subject-aware access through the canonical authorization helpers.
+Scope, kind and ownership remain immutable after creation; normal removal is a
+soft state transition to `deleted`, not physical deletion.
+
 ## Grant groups and target projection
 
 Remote capabilities are replaced and revoked as explicit grant groups. The
