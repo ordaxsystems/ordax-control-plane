@@ -93,7 +93,15 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertFalse(deployment["zone_workers_routes_write_required"])
         self.assertFalse(deployment["bound_resource_direct_access_required"])
         blockers = set(foundation["readiness_blockers"])
-        self.assertIn("r2_bucket_not_provisioned", blockers)
+        self.assertEqual(foundation["r2_bucket"], "ordax-device-artifacts")
+        self.assertNotIn("cloudflare_r2_not_enabled", blockers)
+        self.assertNotIn("r2_bucket_not_provisioned", blockers)
+        r2 = foundation["live_evidence"]["r2"]
+        self.assertTrue(r2["enabled"])
+        self.assertEqual(r2["bucket_name"], foundation["r2_bucket"])
+        self.assertEqual(r2["storage_class"], "Standard")
+        self.assertEqual(r2["jurisdiction"], "default")
+        self.assertIn(r2["location"].lower(), {"apac", "eeur", "enam", "weur", "wnam", "oc"})
         self.assertIn("worker_not_provisioned", blockers)
         self.assertIn(
             "cloudflare_ci_worker_editor_token_not_provisioned",
