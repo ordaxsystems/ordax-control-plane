@@ -14,6 +14,8 @@ PUBLIC_SCHEMA_FAIL_CLOSED = ROOT / "control-plane" / "supabase" / "migrations" /
 CLIENT_MUTATION_POLICY_CLEANUP = ROOT / "control-plane" / "supabase" / "migrations" / "20261007192000_remove_dead_authenticated_mutation_policies.sql"
 SUBJECT_AUTHORIZATION_SSOT = ROOT / "control-plane" / "supabase" / "migrations" / "20261007192500_subject_authorization_ssot_v1.sql"
 SPACE_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007193000_space_authority_v1.sql"
+PROJECT_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007193500_project_authority_v1.sql"
+PROJECT_CONNECTION_CONTRACT = ROOT / "control-plane" / "supabase" / "migrations" / "20261007194000_project_connection_contract_hardening_v1.sql"
 MIGRATION_REGISTRY = ROOT / "control-plane" / "supabase" / "migration-registry.json"
 ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 
@@ -31,6 +33,8 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         cls.client_mutation_policy_cleanup = CLIENT_MUTATION_POLICY_CLEANUP.read_text(encoding="utf-8")
         cls.subject_authorization_ssot = SUBJECT_AUTHORIZATION_SSOT.read_text(encoding="utf-8")
         cls.space_authority_v1 = SPACE_AUTHORITY_V1.read_text(encoding="utf-8")
+        cls.project_authority_v1 = PROJECT_AUTHORITY_V1.read_text(encoding="utf-8")
+        cls.project_connection_contract = PROJECT_CONNECTION_CONTRACT.read_text(encoding="utf-8")
         cls.migration_registry = json.loads(MIGRATION_REGISTRY.read_text(encoding="utf-8"))
         cls.adapter = ADAPTER.read_text(encoding="utf-8")
 
@@ -302,6 +306,33 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         self.assertNotIn("to service_role;", lowered)
         self.assertNotIn("to authenticated;", lowered)
         self.assertIn("ordax_subject_can_admin_space_v1", lowered)
+
+    def test_project_authority_is_dedicated_and_rpc_only(self) -> None:
+        lowered = self.project_authority_v1.lower()
+        self.assertIn("create role ordax_project_executor", lowered)
+        self.assertIn("noinherit", lowered)
+        self.assertIn("nologin", lowered)
+        self.assertIn("nobypassrls", lowered)
+        self.assertIn("ordax_subject_can_admin_space_v1", lowered)
+        for rpc in ("ordax_create_project_v1", "ordax_update_project_v1"):
+            self.assertIn(f"create function public.{rpc}", lowered)
+        self.assertIn("to ordax_project_executor;", lowered)
+        self.assertNotIn("to service_role;", lowered)
+        self.assertNotIn("to authenticated;", lowered)
+        self.assertNotIn("grant select", lowered)
+        self.assertNotIn("grant insert", lowered)
+        self.assertNotIn("grant update", lowered)
+        self.assertNotIn("grant delete", lowered)
+
+    def test_project_connection_contract_stays_read_only_and_explicit(self) -> None:
+        lowered = self.project_connection_contract.lower()
+        self.assertIn("repository_full_name is not null", lowered)
+        self.assertIn("repository_id > 0", lowered)
+        self.assertIn("installation_id > 0", lowered)
+        self.assertIn("ordax_project_connections_project_github_repository_uidx", lowered)
+        self.assertIn("mutation authority unexpectedly present", lowered)
+        self.assertNotIn("create function", lowered)
+        self.assertNotIn("grant ", lowered)
 
     def test_migration_registry_pins_canonical_database_and_history(self) -> None:
         registry = self.migration_registry
