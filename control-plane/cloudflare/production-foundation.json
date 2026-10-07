@@ -1,5 +1,5 @@
 {
-  "version": 7,
+  "version": 8,
   "account_id": "42586bf13b61436219d21def299833e4",
   "worker_name": "ordax-control-plane-v3",
   "r2_bucket": "ordax-device-artifacts",
@@ -44,8 +44,7 @@
     "worker_d1_cutover_incomplete",
     "worker_operator_auth_cutover_incomplete",
     "worker_not_provisioned",
-    "cloudflare_ci_worker_editor_token_not_provisioned",
-    "cloudflare_2fa_not_enabled"
+    "cloudflare_ci_worker_editor_token_not_provisioned"
   ],
   "workers_dev_subdomain": "ordaxsystems",
   "deployment": {
@@ -72,6 +71,10 @@
       "jurisdiction": "default",
       "location": "ENAM",
       "observed_at": "2026-10-07T22:40:13.555Z"
+    },
+    "security": {
+      "member_two_factor_enabled": true,
+      "observed_at": "2026-10-07"
     }
   }
 }

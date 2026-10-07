@@ -62,6 +62,9 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertFalse(foundation["policy"]["allow_d1"])
         self.assertFalse(foundation["policy"]["allow_dual_write"])
         self.assertTrue(foundation["security"]["require_two_factor"])
+        security = foundation["live_evidence"]["security"]
+        self.assertTrue(security["member_two_factor_enabled"])
+        self.assertNotIn("cloudflare_2fa_not_enabled", foundation["readiness_blockers"])
         self.assertEqual(foundation["postgres"]["runtime_transport"], "hyperdrive")
         self.assertEqual(foundation["postgres"]["hyperdrive_binding"], "POSTGRES")
         self.assertEqual(foundation["postgres"]["query_cache"], "disabled")
