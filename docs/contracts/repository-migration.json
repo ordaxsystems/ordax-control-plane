@@ -1,9 +1,7 @@
 {
   "$schema": "ordax-control-plane.repository-migration/1",
-  "status": "target-ready-cutover-pending",
+  "status": "cutover-complete",
   "repository_id": "1406415892",
-  "current_repository": "washingtonmsdj/ordax-control-plane",
-  "target_repository": "ordaxsystems/ordax-control-plane",
   "repository_name_changes_during_transfer": false,
   "redirect_dependency_allowed": false,
   "mirror_repository_allowed": false,
@@ -19,12 +17,16 @@
     "artifact_authority": "r2",
     "realtime_session_coordination": "durable_objects"
   },
-  "transfer_requirements": [
+  "previous_repository": "washingtonmsdj/ordax-control-plane",
+  "canonical_repository": "ordaxsystems/ordax-control-plane",
+  "completed_requirements": [
     "target-organization-membership-confirmed",
     "open-prs-audited",
     "main-sha-recorded",
     "ci-green-before-transfer",
-    "repository-transfer-complete",
+    "repository-transfer-complete"
+  ],
+  "pending_requirements": [
     "control-plane-ci-green-after-transfer",
     "github-environments-and-deploy-credentials-revalidated",
     "consumer-references-repointed"
