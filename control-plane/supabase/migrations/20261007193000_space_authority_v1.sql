@@ -395,8 +395,38 @@ begin
   where granted_role.rolname = 'ordax_space_executor'
      or member_role.rolname = 'ordax_space_executor';
 
+  select count(*) into membership_count
+  from pg_auth_members am
+  join pg_roles granted_role on granted_role.oid = am.roleid
+  join pg_roles member_role on member_role.oid = am.member
+  where (
+      granted_role.rolname = 'ordax_space_executor'
+      or member_role.rolname = 'ordax_space_executor'
+    )
+    and not (
+      granted_role.rolname = 'ordax_space_executor'
+      and member_role.rolname = 'postgres'
+      and am.admin_option
+      and not am.inherit_option
+      and not am.set_option
+    );
+
   if membership_count <> 0 then
-    raise exception 'space authority: executor role membership must be empty before provisioning';
+    raise exception 'space authority: unexpected executor role membership';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_auth_members am
+    join pg_roles granted_role on granted_role.oid = am.roleid
+    join pg_roles member_role on member_role.oid = am.member
+    where granted_role.rolname = 'ordax_space_executor'
+      and member_role.rolname = 'postgres'
+      and am.admin_option
+      and not am.inherit_option
+      and not am.set_option
+  ) then
+    raise exception 'space authority: postgres administrative membership missing';
   end if;
 end;
 $postflight$;
