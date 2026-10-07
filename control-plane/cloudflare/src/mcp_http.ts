@@ -1,3 +1,6 @@
+import { OWNER_DEVICE_COMPUTER_GRANT_PROFILES } from "./product_device_grants.ts";
+import { readBoundedJsonObject } from "./request_json.ts";
+
 export type JsonObject = Record<string, unknown>;
 
 type Handler = (request: Request) => Promise<Response>;
@@ -48,7 +51,7 @@ const REPLACEMENTS = {
   },
 };
 
-const MCP_TOOL_SURFACE_REVISION = "2026-10-06.1";
+const MCP_TOOL_SURFACE_REVISION = "2026-10-07.1";
 
 const TOOLS: ToolSpec[] = [
   { name: "ordax_session", description: "Inspect whether the current ORDAX Product connection is authenticated." },
@@ -364,7 +367,7 @@ function toolAnnotations(name: string): JsonObject {
 function toolInvocationText(name: string): { invoking: string; invoked: string } {
   const title = TOOL_TITLES[name] ?? name.replace(/_/g, " ");
   return {
-    invoking: `${title}ÔÇª`.slice(0, 64),
+    invoking: `${title}…`.slice(0, 64),
     invoked: `${title} complete`.slice(0, 64),
   };
 }
@@ -522,37 +525,9 @@ const OWNER_GRANT_HINT_BY_ACTION = new Map<string, OwnerGrantHint>([
     "intelligence.app_catalog",
     "intelligence.app_detail",
   ].map((action) => [action, { profile: "app-intelligence-read", surface: APP_INTELLIGENCE_GRANT_SURFACE }] as const),
-  ...[
-    "computer.active_window",
-    "computer.click",
-    "computer.drag",
-    "computer.focus_window",
-    "computer.hotkey",
-    "computer.launch_app",
-    "computer.mouse_move",
-    "computer.processes",
-    "computer.screen_info",
-    "computer.screenshot",
-    "computer.scroll",
-    "computer.type",
-    "computer.windows",
-  ].map((action) => [action, { profile: "interactive-computer-control", surface: COMPUTER_GRANT_SURFACE }] as const),
-  ...[
-    "computer.directory_create",
-    "computer.directory_list",
-    "computer.file_stat",
-    "computer.path_move",
-    "computer.path_remove",
-    "computer.search",
-    "computer.text_patch",
-    "computer.text_read",
-    "computer.text_write",
-  ].map((action) => [action, { profile: "computer-filesystem", surface: COMPUTER_GRANT_SURFACE }] as const),
-  ...[
-    "computer.clipboard_read",
-    "computer.clipboard_write",
-  ].map((action) => [action, { profile: "computer-clipboard", surface: COMPUTER_GRANT_SURFACE }] as const),
-  ["computer.terminate_process", { profile: "computer-process-control", surface: COMPUTER_GRANT_SURFACE }],
+  ...Object.entries(OWNER_DEVICE_COMPUTER_GRANT_PROFILES).flatMap(([profile, actions]) =>
+    actions.map((action) => [action, { profile, surface: COMPUTER_GRANT_SURFACE }] as const),
+  ),
   ...[
     "browser.click",
     "browser.list",
@@ -651,7 +626,7 @@ async function callTool(source: Request, name: string, args: JsonObject, handler
   const deviceId = typeof args.device_id === "string" ? args.device_id : "";
   const project = spec.projectRequired && typeof args.project === "string" ? args.project : null;
   const spaceId = typeof args.space_id === "string" ? args.space_id : null;
-  const rawWait = typeof args.wait_for_completion_ms === "number" ? args.wait_for_completion_ms : 8000;
+  const rawWait = typeof args.wait_for_completion_ms === "number" && Number.isFinite(args.wait_for_completion_ms) ? args.wait_for_completion_ms : 8000;
   const waitMs = Math.max(0, Math.min(20000, Math.floor(rawWait)));
   const actionArgs: JsonObject = {};
   for (const [key, value] of Object.entries(args)) {
@@ -694,7 +669,7 @@ export async function handleOrdaxMcp(request: Request, handlers: OrdaxMcpHandler
 
   let message: JsonObject;
   try {
-    const raw = await request.json();
+    const raw = await readBoundedJsonObject(request, 1024 * 1024);
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("invalid");
     message = raw as JsonObject;
   } catch {

@@ -60,19 +60,20 @@ jobs:
           import sys
           import zipfile
           from pathlib import Path
+          from scripts.build_ordax_plugin import PACKAGE_FILES, validate_package
 
           archive = Path(sys.argv[1])
           with zipfile.ZipFile(archive) as zf:
               names = sorted(zf.namelist())
-              expected = ["assets/ordax.svg", "mcp.json", "plugin.json"]
+              expected = sorted(f"ordax-chatgpt/{path}" for path in PACKAGE_FILES)
               if names != expected:
                   raise SystemExit(f"unexpected package contents: {names}")
-              plugin = json.loads(zf.read("plugin.json"))
-              mcp = json.loads(zf.read("mcp.json"))
+              plugin = json.loads(zf.read("ordax-chatgpt/plugin.json"))
+              mcp = json.loads(zf.read("ordax-chatgpt/mcp.json"))
           if plugin.get("name") != "ordax-chatgpt":
               raise SystemExit("ChatGPT connector name mismatch")
-          if plugin.get("version") != "0.4.3":
-              raise SystemExit("connector version mismatch")
+          if plugin != validate_package():
+              raise SystemExit("connector manifest differs from canonical source")
           display_name = (
               plugin.get("extensions", {})
               .get("com.openai", {})

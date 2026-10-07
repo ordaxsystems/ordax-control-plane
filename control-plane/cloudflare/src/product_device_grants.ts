@@ -1,8 +1,9 @@
 import {
   authenticateProductRequest,
   type ProductAuthEnv,
-} from "./product_auth";
-import { COMPUTER_DEVICE_ACTIONS } from "./product_action_scope";
+} from "./product_auth.ts";
+import { COMPUTER_DEVICE_ACTIONS } from "./product_action_scope.ts";
+import { readBoundedJsonObject } from "./request_json.ts";
 
 type JsonObject = Record<string, unknown>;
 
@@ -18,7 +19,7 @@ export const CLIPBOARD_COMPUTER_CONTROL_MODE = "computer-clipboard";
 export const PROCESS_COMPUTER_CONTROL_MODE = "computer-process-control";
 const MAX_BODY_BYTES = 16 * 1024;
 
-const OWNER_DEVICE_COMPUTER_GRANT_PROFILES: Record<string, readonly string[]> = {
+export const OWNER_DEVICE_COMPUTER_GRANT_PROFILES: Readonly<Record<string, readonly string[]>> = {
   [INTERACTIVE_COMPUTER_CONTROL_MODE]: [
     "computer.access_status",
     "computer.active_window",
@@ -67,19 +68,8 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-function isRecord(value: unknown): value is JsonObject {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
 async function parseSmallJson(request: Request): Promise<JsonObject | null> {
-  const raw = await request.text();
-  if (!raw || raw.length > MAX_BODY_BYTES) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    return isRecord(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
+  return readBoundedJsonObject(request, MAX_BODY_BYTES);
 }
 
 function parseExpiry(value: unknown): string | null | undefined {
@@ -98,6 +88,7 @@ function stableComputerActions(): string[] {
 
 function actionsForOwnerDeviceMode(mode: string): string[] | null {
   if (mode === FULL_COMPUTER_CONTROL_MODE) return stableComputerActions();
+  if (!Object.hasOwn(OWNER_DEVICE_COMPUTER_GRANT_PROFILES, mode)) return null;
   const profile = OWNER_DEVICE_COMPUTER_GRANT_PROFILES[mode];
   if (!profile || profile.length === 0) return null;
   if (profile.some((action) => !COMPUTER_DEVICE_ACTIONS.has(action))) return null;

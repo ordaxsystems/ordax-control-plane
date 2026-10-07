@@ -26,7 +26,7 @@ class OwnerProjectBrowserGrantContractTests(unittest.TestCase):
     def test_profile_is_server_derived_from_canonical_browser_scope(self) -> None:
         self.assertIn('PROJECT_BROWSER_AUTOMATION_MODE = "project-browser-automation"', self.handler)
         self.assertIn("[...PROJECT_BROWSER_ACTIONS].sort()", self.handler)
-        self.assertIn('from "./product_action_scope"', self.handler)
+        self.assertIn('from "./product_action_scope.ts"', self.handler)
         self.assertNotIn("body.actions", self.handler)
         self.assertNotIn("body.subject_id", self.handler)
         self.assertNotIn("body.device_id", self.handler)
