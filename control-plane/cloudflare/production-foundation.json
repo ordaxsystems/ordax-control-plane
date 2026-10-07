@@ -1,5 +1,5 @@
 {
-  "version": 8,
+  "version": 9,
   "account_id": "42586bf13b61436219d21def299833e4",
   "worker_name": "ordax-control-plane-v3",
   "r2_bucket": "ordax-device-artifacts",
@@ -7,10 +7,11 @@
   "postgres": {
     "project_ref": "jhfphsjptrpmtnzkpwud",
     "region": "sa-east-1",
-    "runtime_role": "ordax_edge_executor",
+    "runtime_role": "ordax_edge_runtime",
     "runtime_transport": "hyperdrive",
     "hyperdrive_binding": "POSTGRES",
-    "query_cache": "disabled"
+    "query_cache": "disabled",
+    "executor_role": "ordax_edge_executor"
   },
   "authorities": {
     "persistent": "postgresql",
@@ -39,7 +40,6 @@
   "deployment_ready": false,
   "readiness_blockers": [
     "hyperdrive_not_provisioned",
-    "postgres_runtime_login_not_provisioned",
     "worker_hyperdrive_adapter_not_implemented",
     "worker_d1_cutover_incomplete",
     "worker_operator_auth_cutover_incomplete",
@@ -74,6 +74,20 @@
     },
     "security": {
       "member_two_factor_enabled": true,
+      "observed_at": "2026-10-07"
+    },
+    "postgres_runtime": {
+      "project_ref": "jhfphsjptrpmtnzkpwud",
+      "runtime_role": "ordax_edge_runtime",
+      "executor_role": "ordax_edge_executor",
+      "login": true,
+      "has_password": true,
+      "inherits_executor": true,
+      "direct_table_grants": 0,
+      "direct_routine_grants": 0,
+      "security_advisor_findings": 0,
+      "migration": "20261007200000_edge_runtime_login_v1",
+      "applied_version": "20261007230346",
       "observed_at": "2026-10-07"
     }
   }
