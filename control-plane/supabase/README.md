@@ -78,9 +78,11 @@ files are now pinned and must not drift further.
 The files
 `20261007181500_edge_runtime_role.sql` and
 `20261007182000_remove_unprovisioned_edge_login.sql` preserve exact migration
-history already executed on the canonical project. Their final effect is
-intentional: there is no environment LOGIN role provisioned in the database.
-Runtime credentials are environment-specific and must never be committed.
+history already executed on the canonical project. The later
+`20261007200000_edge_runtime_login_v1.sql` introduces the stable environment
+LOGIN identity `ordax_edge_runtime` only after the Cloudflare boundary is ready.
+The role shape is versioned in Git, but the password is provisioned and rotated
+out-of-band and must never be committed.
 
 ## No dual-primary fallback
 
@@ -115,10 +117,10 @@ access to the `private` schema. It receives only explicit EXECUTE grants on the
 required RPCs.
 
 `service_role` is not the executor for these remote-action RPCs and has no direct
-DML authority over the Product remote device/presence/binding/grant tables. A future
-environment LOGIN credential may inherit `ordax_edge_executor` only when it is
-provisioned outside migrations with dedicated secret management. No such LOGIN
-role is part of the canonical database baseline.
+DML authority over the Product remote device/presence/binding/grant tables. The environment LOGIN identity `ordax_edge_runtime` inherits only
+`ordax_edge_executor`. It receives no direct table/routine authority. Its
+credential is deployment state, not migration source, and must be provisioned
+out-of-band before Hyperdrive can become ready.
 
 Private Product action tables grant no direct access to browser roles or to the
 edge executor. Server authority enters only through narrowly reviewed
