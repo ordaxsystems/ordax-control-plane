@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "account_id": "42586bf13b61436219d21def299833e4",
   "worker_name": "ordax-control-plane-v3",
   "r2_bucket": "ordax-device-artifacts",
@@ -7,7 +7,10 @@
   "postgres": {
     "project_ref": "jhfphsjptrpmtnzkpwud",
     "region": "sa-east-1",
-    "runtime_role": "ordax_edge_executor"
+    "runtime_role": "ordax_edge_executor",
+    "runtime_transport": "hyperdrive",
+    "hyperdrive_binding": "POSTGRES",
+    "query_cache": "disabled"
   },
   "authorities": {
     "persistent": "postgresql",
@@ -26,13 +29,18 @@
   },
   "policy": {
     "allow_d1": false,
-    "allow_dual_write": false
+    "allow_dual_write": false,
+    "forbidden_runtime_secrets": [
+      "SUPABASE_SERVER_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY"
+    ]
   },
   "deployment_ready": false,
   "readiness_blockers": [
     "cloudflare_r2_not_enabled",
     "hyperdrive_not_provisioned",
     "postgres_runtime_login_not_provisioned",
+    "worker_hyperdrive_adapter_not_implemented",
     "worker_d1_cutover_incomplete",
     "product_auth_metadata_not_repointed",
     "workers_dev_subdomain_not_initialized",
