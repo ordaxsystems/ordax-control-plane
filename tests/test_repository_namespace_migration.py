@@ -16,7 +16,7 @@ class RepositoryNamespaceMigrationTests(unittest.TestCase):
             self.contract["$schema"],
             "ordax-control-plane.repository-migration/1",
         )
-        self.assertEqual(self.contract["status"], "cutover-complete")
+        self.assertEqual(\n            self.contract["status"],\n            "owner-transfer-complete-validation-pending",\n        )
         self.assertEqual(self.contract["repository_id"], "1406415892")
         self.assertEqual(
             self.contract["previous_repository"],
@@ -27,6 +27,14 @@ class RepositoryNamespaceMigrationTests(unittest.TestCase):
             "ordaxsystems/ordax-control-plane",
         )
         self.assertFalse(self.contract["repository_name_changes_during_transfer"])
+        self.assertEqual(
+            self.contract["transfer_observed"],
+            {
+                "repository_id": "1406415892",
+                "owner": "ordaxsystems",
+                "repository": "ordax-control-plane",
+            },
+        )
 
     def test_cutover_keeps_single_authority(self):
         self.assertFalse(self.contract["redirect_dependency_allowed"])
