@@ -56,7 +56,7 @@ jobs:
       - name: Run Control Plane contract tests
         run: |
           node --test control-plane/tests/*.test.mts
-          python -m unittest tests.test_product_action_scope_contract tests.test_cloudflare_device_scope_wiring tests.test_owner_device_computer_grants_contract tests.test_owner_device_intelligence_grants_contract tests.test_mcp_owner_grant_hint_contract tests.test_product_auth_contract tests.test_product_device_pairing_contract tests.test_product_link_aware_grants tests.test_openai_plugin_annotation_evidence tests.test_openai_review_grant_workflow tests.test_cloudflare_account_resolution tests.test_secure_secret_cutover_script
+          python -m unittest tests.test_product_action_scope_contract tests.test_cloudflare_device_scope_wiring tests.test_owner_device_computer_grants_contract tests.test_owner_device_intelligence_grants_contract tests.test_mcp_owner_grant_hint_contract tests.test_product_auth_contract tests.test_product_device_pairing_contract tests.test_product_link_aware_grants tests.test_openai_plugin_annotation_evidence tests.test_openai_review_grant_workflow tests.test_cloudflare_account_resolution tests.test_secure_secret_cutover_script tests.test_product_postgres_authority
 
       - name: Verify canonical MCP surface revision exists
         run: |
