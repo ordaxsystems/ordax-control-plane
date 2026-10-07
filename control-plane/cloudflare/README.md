@@ -41,7 +41,7 @@ O destino correto é:
 
 O runtime PostgreSQL usa a credencial LOGIN dedicada `ordax_edge_runtime`, que herda somente o boundary NOLOGIN `ordax_edge_executor`. O Hyperdrive canônico está provisionado com cache desabilitado, TLS `require` e limite de 10 conexões de origem.
 
-O arquivo `src/product_postgres_store.ts` ainda representa o adaptador REST legado com backend secret. Ele **não é o destino de produção** e o foundation mantém `worker_hyperdrive_adapter_not_implemented` como blocker enquanto esse código existir.
+`src/product_postgres_store.ts` usa diretamente o binding `POSTGRES` do Hyperdrive com Postgres.js pinado. O runtime não usa backend secret genérico do Supabase, não chama `/rest/v1/rpc/` e continua restrito às RPCs PostgreSQL públicas concedidas ao boundary `ordax_edge_executor`.
 
 São proibidos no runtime Worker de produção:
 
@@ -176,7 +176,6 @@ O blocker atual é a dependência `catalogo-media`, que pertence a Catálogo/Ach
 
 A lista executável está somente em `production-foundation.json`. No estado atual ela inclui:
 
-- adapter Worker -> Hyperdrive ainda não implementado;
 - cutover D1 ainda incompleto;
 - autenticação operacional legada por `ORDAX_OPERATOR_TOKEN` ainda não removida/substituída;
 - Worker de produção ainda não provisionado;
@@ -199,7 +198,7 @@ A ordem correta é:
 1. fechar authorities PostgreSQL faltantes;
 2. provisionar LOGIN runtime least-privilege;
 3. provisionar Hyperdrive — concluído;
-4. substituir os adapters D1/REST pelo caminho Hyperdrive/PostgreSQL;
+4. substituir o adapter REST pelo caminho Hyperdrive/PostgreSQL — concluído para o Product Postgres RPC boundary; remoção dos call-sites D1 segue por domínio;
 5. habilitar R2 e provisionar o bucket canônico;
 6. migrar somente artifacts necessários, com integridade;
 7. remover D1 do `wrangler.toml` e do runtime;

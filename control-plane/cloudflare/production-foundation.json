@@ -1,5 +1,5 @@
 {
-  "version": 10,
+  "version": 11,
   "account_id": "42586bf13b61436219d21def299833e4",
   "worker_name": "ordax-control-plane-v3",
   "r2_bucket": "ordax-device-artifacts",
@@ -39,7 +39,6 @@
   },
   "deployment_ready": false,
   "readiness_blockers": [
-    "worker_hyperdrive_adapter_not_implemented",
     "worker_d1_cutover_incomplete",
     "worker_operator_auth_cutover_incomplete",
     "worker_not_provisioned",
@@ -100,6 +99,14 @@
       "query_cache_disabled": true,
       "sslmode": "require",
       "observed_at": "2026-10-07T23:30:08.791391Z"
+    },
+    "worker_postgres_adapter": {
+      "transport": "hyperdrive",
+      "binding": "POSTGRES",
+      "driver": "postgres",
+      "driver_version": "3.4.5",
+      "legacy_rest_backend_secret": false,
+      "direct_table_mutation": false
     }
   }
 }

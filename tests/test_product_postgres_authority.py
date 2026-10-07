@@ -119,18 +119,21 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         self.assertIn("interval '5 minutes'", self.sql)
         self.assertIn("p_force boolean default false", self.sql)
 
-    def test_worker_adapter_uses_modern_backend_secret_only(self) -> None:
+    def test_worker_adapter_uses_hyperdrive_without_backend_secret(self) -> None:
         lowered = self.adapter.lower()
-        self.assertIn("supabase_server_key", lowered)
-        self.assertIn("sb_secret_", lowered)
-        self.assertIn("apikey: serverkey", lowered)
+        self.assertIn('import postgres from "postgres"', lowered)
+        self.assertIn("env.postgres?.connectionstring", lowered)
+        self.assertIn("sql.unsafe", lowered)
+        self.assertNotIn("supabase_server_key", lowered)
+        self.assertNotIn("supabase_service_role_key", lowered)
+        self.assertNotIn("/rest/v1/rpc/", lowered)
+        self.assertNotIn("apikey:", lowered)
         self.assertNotIn("authorization", lowered)
         self.assertNotIn("bearer ", lowered)
-        self.assertNotIn("supabase_service_role_key", lowered)
         self.assertNotIn("d1database", lowered)
 
     def test_adapter_is_rpc_only_not_direct_table_mutation(self) -> None:
-        self.assertIn("/rest/v1/rpc/", self.adapter)
+        self.assertIn("select public.", self.adapter)
         self.assertNotIn("/rest/v1/ordax_", self.adapter)
         for rpc in (
             "ordax_enqueue_product_action_v1",

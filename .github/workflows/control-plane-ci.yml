@@ -27,6 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Install pinned Worker runtime dependency
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false --prefix control-plane/cloudflare
       - name: Build production Worker bundle without deployment authority
         run: |
           outdir="$RUNNER_TEMP/ordax-control-plane-worker"

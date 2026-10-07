@@ -1,0 +1,9 @@
+{
+  "name": "@ordax/control-plane-cloudflare",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "postgres": "3.4.5"
+  }
+}

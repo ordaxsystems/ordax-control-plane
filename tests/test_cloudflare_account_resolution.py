@@ -10,6 +10,7 @@ BOOTSTRAP = ROOT / "scripts" / "cloudflare" / "deploy-v3.sh"
 ROUTINE_DEPLOY = ROOT / "scripts" / "cloudflare" / "deploy-production-v3.sh"
 FOUNDATION = ROOT / "control-plane" / "cloudflare" / "production-foundation.json"
 WRANGLER = ROOT / "control-plane" / "cloudflare" / "wrangler.toml"
+WORKER_PACKAGE = ROOT / "control-plane" / "cloudflare" / "package.json"
 POSTGRES_ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 WORKER_SOURCE = ROOT / "control-plane" / "cloudflare" / "src" / "index.ts"
 CLOUDFLARE_SRC = ROOT / "control-plane" / "cloudflare" / "src"
@@ -268,12 +269,22 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
             "ORDAX_OPERATOR_TOKEN surface changed; new legacy bearer usage is forbidden and removals must update the allowlist",
         )
 
-    def test_legacy_rest_adapter_keeps_production_blocked_until_hyperdrive_cutover(self):
+    def test_hyperdrive_adapter_replaces_legacy_rest_boundary(self):
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
         adapter = POSTGRES_ADAPTER.read_text(encoding="utf-8")
+        package = json.loads(WORKER_PACKAGE.read_text(encoding="utf-8"))
         blockers = set(foundation["readiness_blockers"])
-        if "SUPABASE_SERVER_KEY" in adapter or "/rest/v1/rpc/" in adapter:
-            self.assertIn("worker_hyperdrive_adapter_not_implemented", blockers)
+
+        self.assertNotIn("SUPABASE_SERVER_KEY", adapter)
+        self.assertNotIn("/rest/v1/rpc/", adapter)
+        self.assertIn('env.POSTGRES?.connectionString', adapter)
+        self.assertIn('import postgres from "postgres"', adapter)
+        self.assertEqual(package["dependencies"]["postgres"], "3.4.5")
+        self.assertNotIn("worker_hyperdrive_adapter_not_implemented", blockers)
+
+        with WRANGLER.open("rb") as handle:
+            wrangler = tomllib.load(handle)
+        self.assertIn("nodejs_compat", wrangler.get("compatibility_flags") or [])
 
     def test_routine_workflow_reads_account_from_single_source_of_truth(self):
         workflow = WORKFLOW.read_text(encoding="utf-8-sig")
