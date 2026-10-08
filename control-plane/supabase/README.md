@@ -265,6 +265,41 @@ Arbitrary per-Space configuration is intentionally unavailable at this stage:
 selection stores an empty JSON object rather than accepting an unreviewed
 configuration containing credentials or executable instructions.
 
+## Default entitlement ledger (no billing authority)
+
+The canonical `public.ordax_entitlement_grants` table remains the entitlement
+state SSOT. Issuance and revocation provenance is recorded through a source
+event ID and a private event journal. The pair `(source, source_event_id)` is
+unique; retries with identical inputs replay a receipt and different inputs
+using the same event ID fail closed.
+
+`ordax_entitlement_default_executor` is a NOLOGIN/NOINHERIT/NOBYPASSRLS
+role with **no direct relation privileges**. Only
+`ordax_issue_default_entitlement_v1` and
+`ordax_revoke_default_entitlement_v1` are callable by that executor.
+The source is hard-coded to `product-default`. The issuer obtains value and
+duration from an approved version of
+`private.ordax_default_entitlement_policies` rather than accepting arbitrary
+entitlement JSON, dates, or a caller-selected source. That catalog is empty
+at baseline; publishing a policy requires a separate reviewed migration.
+Only account-scoped defaults are supported here. Issuance serializes by event
+and subject/key to prevent parallel duplicate active default grants.
+
+Revocation preserves the original grant row, shortens its effective validity,
+and appends an event; there is no normal hard-delete API. The event journal is
+private and has no direct client, service_role, or executor privileges. Events
+are cleaned up with their grant/account through FK cascades, subject to the
+future account lifecycle policy. No permanent post-deletion personal-data
+retention is implied.
+
+**Production remains fail-closed:** creating the NOLOGIN role does not issue
+a credential or authorize an external caller. A trusted service must verify
+the event's origin and target identity *before* invoking an RPC through a
+separately provisioned credential. Billing, promotion, admin issuance, paid
+subscription state and event signature validation are deliberately out of scope
+until their own signed/verified origin, idempotency, revocation and audit
+contracts exist. Do not expose this role via an unauthenticated edge handler.
+
 ## Memory authority
 
 Durable Memory uses a dedicated NOLOGIN/NOINHERIT `ordax_memory_executor`

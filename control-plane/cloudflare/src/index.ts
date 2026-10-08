@@ -31,13 +31,18 @@ import { oauthConsentResponse } from "./oauth_consent";
 import { openAiAppsChallenge, publicProductPage } from "./public_pages";
 import { runProductRetention } from "./retention";
 import { readBoundedJsonObject } from "./request_json";
-import { productPostgresConfigured, type ProductPostgresEnv } from "./product_postgres_store";
+import {
+  enrollProductDevice,
+  identifyProductDevice,
+  ProductPostgresError,
+  productPostgresConfigured,
+  type ProductPostgresEnv,
+} from "./product_postgres_store";
 
 interface Env extends ProductAuthEnv, ProductPostgresEnv {
   DB: D1Database;
   ARTIFACTS: R2Bucket;
   DEVICE_SESSIONS: DurableObjectNamespace<DeviceSession>;
-  ENROLLMENT_SESSIONS: DurableObjectNamespace<EnrollmentSession>;
   ORDAX_OPERATOR_TOKEN: string;
   OPENAI_APPS_CHALLENGE?: string;
 }
@@ -351,25 +356,27 @@ async function deviceSetup(request: Request, env: Env): Promise<Response> {
       return json({ ok: false, error: "device_auth_required" }, 401);
     }
     const digest = await sha256Text(rawToken);
-    const row = await env.DB.prepare(
-      `SELECT id, machine_binding_sha256, revoked_at
-       FROM ordax_devices WHERE token_sha256 = ?1`,
-    ).bind(digest).first<{
-      id: string;
-      machine_binding_sha256: string | null;
-      revoked_at: string | null;
-    }>();
-    if (!row || row.revoked_at) {
-      return json({ ok: false, error: "device_token_invalid" }, 401);
+    try {
+      // Product identity is owned by PostgreSQL; never consult engineering D1.
+      const identified = await identifyProductDevice(env, {
+        tokenSha256: digest,
+        machineBindingSha256: binding,
+      });
+      if (identified.ok !== true || typeof identified.device_id !== "string"
+          || !UUID_RE.test(identified.device_id)) {
+        return json({ ok: false, error: "device_token_invalid" }, 401);
+      }
+      return json({
+        ok: true,
+        protocol: "cloudflare-v3",
+        device_id: identified.device_id,
+      });
+    } catch (error) {
+      if (error instanceof ProductPostgresError) {
+        return json({ ok: false, error: error.code }, error.status);
+      }
+      return json({ ok: false, error: "product_postgres_unavailable" }, 503);
     }
-    if (row.machine_binding_sha256 !== binding) {
-      return json({ ok: false, error: "machine_binding_mismatch" }, 403);
-    }
-    return json({
-      ok: true,
-      protocol: "cloudflare-v3",
-      device_id: row.id,
-    });
   }
 
   if (operation !== "enroll") {
@@ -382,11 +389,17 @@ async function deviceSetup(request: Request, env: Env): Promise<Response> {
   const deviceName = typeof body.device_name === "string"
     ? body.device_name.trim()
     : "";
+  const deviceKind = body.device_kind;
+  const channel = body.channel;
   if (
     !HEX64_RE.test(tokenSha256)
     || deviceName.length < 1
     || deviceName.length > 120
     || /[\x00-\x1f\x7f]/.test(deviceName)
+    || (deviceKind !== "desktop" && deviceKind !== "laptop"
+      && deviceKind !== "mobile" && deviceKind !== "server"
+      && deviceKind !== "other")
+    || (channel !== "stable" && channel !== "development")
   ) {
     return json({ ok: false, error: "request_invalid" }, 400);
   }
@@ -396,19 +409,45 @@ async function deviceSetup(request: Request, env: Env): Promise<Response> {
     return json({ ok: false, error: identity.error }, identity.status);
   }
 
-  const id = env.ENROLLMENT_SESSIONS.idFromName(binding);
-  return env.ENROLLMENT_SESSIONS.get(id).fetch("https://enrollment.internal/enroll", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "X-Ordax-Product-Subject": identity.subjectId,
-    },
-    body: JSON.stringify({
-      machine_binding_sha256: binding,
-      device_name: deviceName,
-      token_sha256: tokenSha256,
-    }),
-  });
+  if (!UUID_RE.test(identity.subjectId)) {
+    return json({ ok: false, error: "device_owner_invalid" }, 403);
+  }
+  try {
+    // The canonical RPC atomically enforces owner binding, credential uniqueness,
+    // and the 10-per-hour re-enrollment limit; no DO business persistence.
+    const enrolled = await enrollProductDevice(env, {
+      ownerUserId: identity.subjectId,
+      deviceName,
+      deviceKind,
+      channel,
+      tokenSha256,
+      machineBindingSha256: binding,
+    });
+    if (enrolled.ok !== true || typeof enrolled.device_id !== "string"
+        || !UUID_RE.test(enrolled.device_id)) {
+      const code = typeof enrolled.error === "string"
+        ? enrolled.error : "device_enrollment_invalid";
+      const statuses: Record<string, number> = {
+        device_enrollment_invalid: 400,
+        device_owner_not_found: 403,
+        device_owner_mismatch: 403,
+        device_credential_conflict: 409,
+        device_credential_missing: 409,
+        enrollment_rate_limited: 429,
+      };
+      return json({ ok: false, error: code }, statuses[code] ?? 502);
+    }
+    return json({
+      ok: true,
+      protocol: "cloudflare-v3",
+      device_id: enrolled.device_id,
+    });
+  } catch (error) {
+    if (error instanceof ProductPostgresError) {
+      return json({ ok: false, error: error.code }, error.status);
+    }
+    return json({ ok: false, error: "product_postgres_unavailable" }, 503);
+  }
 }
 
 
@@ -2410,118 +2449,6 @@ export default {
     return json({ ok: false, error: "not_found" }, 404);
   },
 };
-
-export class EnrollmentSession extends DurableObject<Env> {
-  constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
-  }
-
-  async fetch(request: Request): Promise<Response> {
-    const url = new URL(request.url);
-    if (request.method !== "POST" || url.pathname !== "/enroll") {
-      return json({ ok: false, error: "not_found" }, 404);
-    }
-
-    const productSubjectId = request.headers.get("X-Ordax-Product-Subject") ?? "";
-    if (!PRODUCT_ID_RE.test(productSubjectId)) {
-      return json({ ok: false, error: "user_identity_invalid" }, 401);
-    }
-    const body = await parseSmallJson(request, 8 * 1024);
-    if (!body) return json({ ok: false, error: "request_invalid" }, 400);
-
-    const binding = typeof body.machine_binding_sha256 === "string"
-      ? body.machine_binding_sha256.toLowerCase()
-      : "";
-    const tokenSha256 = typeof body.token_sha256 === "string"
-      ? body.token_sha256.toLowerCase()
-      : "";
-    const name = typeof body.device_name === "string" ? body.device_name.trim() : "";
-    if (!HEX64_RE.test(binding) || !HEX64_RE.test(tokenSha256) || !name) {
-      return json({ ok: false, error: "request_invalid" }, 400);
-    }
-
-    const existing = await this.env.DB.prepare(
-      `SELECT id, owner_product_subject_id, enrollment_window_started_at, enrollment_count
-       FROM ordax_devices WHERE machine_binding_sha256 = ?1`,
-    ).bind(binding).first<{
-      id: string;
-      owner_product_subject_id: string | null;
-      enrollment_window_started_at: string | null;
-      enrollment_count: number;
-    }>();
-
-    if (
-      existing?.owner_product_subject_id
-      && existing.owner_product_subject_id !== productSubjectId
-    ) {
-      return json({ ok: false, error: "device_owner_mismatch" }, 403);
-    }
-
-    const now = new Date();
-    const previousWindow = existing?.enrollment_window_started_at
-      ? new Date(existing.enrollment_window_started_at)
-      : null;
-    const sameWindow = Boolean(
-      previousWindow
-      && Number.isFinite(previousWindow.getTime())
-      && now.getTime() - previousWindow.getTime() < 60 * 60 * 1000,
-    );
-    const previousCount = sameWindow ? Number(existing?.enrollment_count ?? 0) : 0;
-    if (previousCount >= 10) {
-      return json({ ok: false, error: "enrollment_rate_limited" }, 429);
-    }
-
-    const deviceId = existing?.id ?? crypto.randomUUID();
-    const windowStartedAt = sameWindow && previousWindow
-      ? previousWindow.toISOString()
-      : now.toISOString();
-    const enrolledAt = now.toISOString();
-    const nextCount = previousCount + 1;
-
-    if (existing) {
-      const updated = await this.env.DB.prepare(
-        `UPDATE ordax_devices SET
-           name = ?1,
-           token_sha256 = ?2,
-           owner_product_subject_id = ?3,
-           revoked_at = NULL,
-           last_enrolled_at = ?4,
-           enrollment_window_started_at = ?5,
-           enrollment_count = ?6
-         WHERE id = ?7
-           AND machine_binding_sha256 = ?8
-           AND (owner_product_subject_id IS NULL OR owner_product_subject_id = ?3)`,
-      ).bind(
-        name, tokenSha256, productSubjectId, enrolledAt,
-        windowStartedAt, nextCount, deviceId, binding,
-      ).run();
-      if ((updated.meta.changes ?? 0) !== 1) {
-        return json({ ok: false, error: "enrollment_conflict" }, 409);
-      }
-    } else {
-      try {
-        await this.env.DB.prepare(
-          `INSERT INTO ordax_devices
-            (id, name, token_sha256, created_at, revoked_at,
-             machine_binding_sha256, owner_product_subject_id, last_enrolled_at,
-             enrollment_window_started_at, enrollment_count)
-           VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8, ?9)`,
-        ).bind(
-          deviceId, name, tokenSha256, enrolledAt, binding,
-          productSubjectId, enrolledAt, windowStartedAt, nextCount,
-        ).run();
-      } catch {
-        return json({ ok: false, error: "enrollment_conflict" }, 409);
-      }
-    }
-
-    return json({
-      ok: true,
-      protocol: "cloudflare-v3",
-      device_id: deviceId,
-    });
-  }
-}
 
 type SocketAttachment = {
   deviceId: string;

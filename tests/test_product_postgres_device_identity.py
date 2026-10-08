@@ -79,6 +79,69 @@ class ProductPostgresDeviceIdentityTests(unittest.TestCase):
         self.assertIn("v_next_count > 10", lowered)
         self.assertIn("pg_advisory_xact_lock", lowered)
 
+    def test_legacy_product_setup_uses_only_canonical_postgres_identity(self) -> None:
+        worker = (
+            ROOT / "control-plane/cloudflare/src/index.ts"
+        ).read_text(encoding="utf-8")
+        setup = worker.split(
+            "async function deviceSetup(", 1
+        )[1].split("type ProductGrantRow =", 1)[0]
+        self.assertIn("identifyProductDevice(env,", setup)
+        self.assertIn("enrollProductDevice(env,", setup)
+        self.assertIn("ownerUserId: identity.subjectId", setup)
+        self.assertIn("deviceKind,", setup)
+        self.assertIn('deviceKind !== "desktop"', setup)
+        self.assertIn("channel,", setup)
+        self.assertIn('channel !== "stable"', setup)
+        self.assertIn('channel !== "development"', setup)
+        self.assertIn("sha256Text(rawToken)", setup)
+        self.assertIn("ProductPostgresError", setup)
+        self.assertIn("enrollment_rate_limited: 429", setup)
+        self.assertNotIn("env.DB", setup)
+        self.assertNotIn("ENROLLMENT_SESSIONS", worker)
+        self.assertNotIn("export class EnrollmentSession", worker)
+
+    def test_product_business_enrollment_does_not_allocate_durable_objects(self) -> None:
+        import tomllib
+        for file_name in ("wrangler.toml", "wrangler.ci.toml"):
+            config_path = ROOT / "control-plane/cloudflare" / file_name
+            with config_path.open("rb") as stream:
+                config = tomllib.load(stream)
+            self.assertEqual(
+                [
+                    (binding["name"], binding["class_name"])
+                    for binding in config["durable_objects"]["bindings"]
+                ],
+                [("DEVICE_SESSIONS", "DeviceSession")],
+            )
+            self.assertFalse(
+                any(
+                    "EnrollmentSession" in migration.get("new_sqlite_classes", [])
+                    for migration in config.get("migrations", [])
+                )
+            )
+
+    def test_d1_callsite_ceiling_was_reduced_after_enrollment_cutover(self) -> None:
+        import json
+        worker = (
+            ROOT / "control-plane/cloudflare/src/index.ts"
+        ).read_text(encoding="utf-8")
+        manifest = json.loads(
+            (ROOT / "control-plane/cloudflare/d1-cutover-authority-map.json")
+            .read_text(encoding="utf-8")
+        )
+        self.assertEqual(manifest["baseline_env_db_calls"], 71)
+        self.assertEqual(worker.count("env.DB"), 71)
+        foundation = json.loads(
+            (ROOT / "control-plane/cloudflare/production-foundation.json")
+            .read_text(encoding="utf-8")
+        )
+        self.assertIn(
+            "product_device_setup_client_contract_not_verified",
+            foundation["readiness_blockers"],
+        )
+        self.assertFalse(foundation["deployment_ready"])
+
     def test_worker_adapter_exposes_hash_only_device_methods(self) -> None:
         for method in (
             "enrollProductDevice",

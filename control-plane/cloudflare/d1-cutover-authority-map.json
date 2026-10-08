@@ -2,7 +2,7 @@
   "version": 1,
   "source": "control-plane/cloudflare/src/index.ts",
   "legacy_binding": "DB",
-  "baseline_env_db_calls": 75,
+  "baseline_env_db_calls": 71,
   "tracking_issue": 42,
   "policy": {
     "allow_callsite_growth": false,

@@ -24,14 +24,7 @@ bucket_name = "ordax-device-artifacts-ci"
 name = "DEVICE_SESSIONS"
 class_name = "DeviceSession"
 
-[[durable_objects.bindings]]
-name = "ENROLLMENT_SESSIONS"
-class_name = "EnrollmentSession"
-
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["DeviceSession"]
 
-[[migrations]]
-tag = "v2"
-new_sqlite_classes = ["EnrollmentSession"]
