@@ -324,30 +324,38 @@ Never expose this database executor through an unauthenticated endpoint.
 
 ## Auth-owned entitlement revocation
 
-When Supabase Auth marks an account deleted by transitioning
-`auth.users.deleted_at` from NULL to a timestamp, a private PostgreSQL
-trigger expires its active `product-default` grants and atomically records
-`account_deleted:<grant_id>` revocation receipts in the existing private
-entitlement journal. This event comes from the canonical Auth row change, not
-from a client-supplied reason or externally invocable revoke RPC. Repeated
-writes to a previously deleted account do not generate duplicate receipts.
+The canonical Supabase Auth row is also the authority for loss of eligibility
+after an account-default benefit has been issued. A single private PostgreSQL
+trigger runs in the Auth transaction for three transitions:
 
-The canonical account-default issuer acquires `FOR SHARE` on the verified
-`auth.users` and `ordax_accounts` rows **before** replay inspection and
-issuance. This conflicts with Auth's `FOR NO KEY UPDATE` lock on
-`deleted_at`, eliminating the race where an account could be soft-deleted
-after a weak `FOR KEY SHARE` check but before grant creation. The same
-validation rejects replay for deleted accounts. Trigger logic and issuer
-changes share one versioned database migration; neither a second mutable
-SSOT nor an additional LOGIN role is created.
+- `deleted_at` changes from NULL to a timestamp (soft-delete);
+- `is_anonymous` changes from false to true;
+- generated `confirmed_at` changes from non-NULL to NULL, reflecting loss
+  of all currently confirmed contact channels.
 
-Physical Auth user deletion continues to cascade through the existing grant
-and journal foreign keys: the private receipt is for the soft-delete window,
-not an excuse to retain erased personal data. Other entitlement sources
-(billing, promotion, admin) deliberately remain outside this trigger's
-authority. Their revocation must come from independently verified lifecycle
-events or reviewed operators; do not reuse this Auth-only trigger as a
-general-purpose cancellation endpoint.
+The new trigger supersedes the deletion-only v1 trigger and function; they
+are **dropped**, not retained as a second implementation. The trigger must
+watch the full `UPDATE` event because `confirmed_at` is a *stored generated
+column* derived from the email/phone confirmation columns. Its `WHEN`
+predicate prevents work for unrelated Auth updates.
+
+It atomically expires active `product-default` grants and appends an event
+`account_deleted:<grant_id>` for deletion or
+`account_ineligible:<grant_id>` for confirmation/anonymous downgrade to
+the existing private event journal. A repeated ineligible update does not
+duplicate an event because only currently active grants are affected.
+
+The account-default issuer continues to acquire a `FOR SHARE` lock on the
+verified `auth.users` / `ordax_accounts` rows before replay checks.
+This conflicts with Auth updates that change eligibility, so no default
+grant can be issued after an eligibility-losing update commits. A subsequent
+upgrade/reconfirmation does not automatically reissue an already consumed
+one-time account-created event; this is intentionally fail-closed.
+
+Hard deletion cascades through the existing Auth/entitlement foreign keys.
+No independent entitlement SSOT, LOGIN role, generic revocation RPC or
+billing/admin authority is introduced. Other grant sources continue to need
+their own verified revocation contract.
 
 ## Memory authority
 
