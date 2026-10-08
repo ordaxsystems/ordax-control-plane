@@ -474,6 +474,43 @@ The separate trusted executor APIs still need their own caller verification
 and authorization; RLS on client SELECT does not make those operations
 automatically session-aware.
 
+## Trusted service actors and canonical Auth eligibility
+
+The ten account-actor write RPCs for Spaces, Space membership, Projects,
+Memory and profile-pack selection use dedicated NOLOGIN executors and accept
+an explicit `p_actor_user_id` from a trusted service. This input is a
+**claimed principal, not proof of who called the service**. The caller's
+identity, session and permission to request each RPC must be verified by
+the authenticated service **before** it invokes the database executor.
+
+A single, unexposed private `ordax_trusted_actor_auth_eligible_v1(uuid)`
+`SECURITY INVOKER` helper now runs *inside* those SECURITY DEFINER RPCs
+before any resource change. It checks the canonical `auth.users` row and
+the matching `ordax_accounts` identity: confirmed, non-anonymous,
+not soft-deleted and not currently banned. It takes `FOR SHARE` locks on
+both rows to serialize service mutations against concurrent Auth status
+changes. An ineligible actor fails closed as `trusted_actor_auth_ineligible`.
+Temporary suspensions do **not** revoke existing resources or memberships;
+normal operations resume when Auth becomes eligible again.
+
+This is distinct from the request-session checker
+`ordax_authenticated_subject_eligible_v1()` used by RLS: a trusted service
+may use a database connection without forwarding the user's JWT. These
+two helpers check different boundaries and never substitute for each other.
+The SQL helper is deliberately not executable by any app/client role,
+service-role or OrdaX executor; the enclosing postgres-owned RPC calls it
+with the database owner's privileges. Existing NOLOGIN EXECUTE grants on
+the ten public RPCs are unchanged.
+
+The migration pins the exact definitions of all ten existing RPCs before
+changing them to avoid silently overwriting another chat's work. It
+adds no new table, database executor, RPC endpoint or general-purpose
+identity delegation; it does not change Cloudflare, Vercel or upstream
+identity validation. After this migration an invalid Auth actor is
+rejected even if a trusted service inadvertently queues a stale command,
+but **the database still cannot establish that the network caller is the
+claimed actor** without the service authorization context.
+
 ## Memory authority
 
 Durable Memory uses a dedicated NOLOGIN/NOINHERIT `ordax_memory_executor`
