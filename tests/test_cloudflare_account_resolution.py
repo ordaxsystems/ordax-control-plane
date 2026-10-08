@@ -291,7 +291,10 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertNotIn("secrets.CLOUDFLARE_ACCOUNT_ID", workflow)
         self.assertNotIn(OLD_ACCOUNT_ID, workflow)
         self.assertNotIn(DEDICATED_ACCOUNT_ID, workflow)
-        self.assertIn("control-plane/cloudflare/production-foundation.json", workflow)
+        self.assertIn(
+            "control-plane/cloudflare/production-foundation.json",
+            (ROOT / "scripts/cloudflare/check_deploy_readiness.py").read_text(encoding="utf-8"),
+        )
         self.assertIn("needs.foundation.outputs.account_id", workflow)
         self.assertIn("needs.foundation.outputs.deployment_ready == 'true'", workflow)
         self.assertIn("secrets.CLOUDFLARE_API_TOKEN", workflow)
