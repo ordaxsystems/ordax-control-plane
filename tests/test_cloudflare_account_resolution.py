@@ -216,6 +216,41 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertFalse(cutover["policy"]["allow_dual_write"])
         self.assertFalse(cutover["policy"]["durable_objects_as_business_persistence"])
 
+    def test_product_cutover_stays_blocked_until_client_identity_is_enforced(self):
+        cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
+        domain = next(
+            item for item in cutover["domains"]
+            if item["id"] == "product_remote_authority"
+        )
+        self.assertEqual(domain["authority_state"], "partial")
+        self.assertEqual(
+            set(domain["cutover_blockers"]),
+            {
+                "enqueue_and_grant_resolution_missing_client_id_binding",
+                "validated_client_identity_not_propagated_to_product_rpc",
+                "product_mcp_consumers_and_route_contracts_not_cut_over",
+            },
+        )
+
+        # The immutable applied migration lacks client_id in enqueue; existing
+        # grant groups and targets already distinguish client_id. The current
+        # legacy action handler must not silently route into that RPC.
+        migration = (
+            ROOT / "control-plane/supabase/migrations/"
+            "20261007184500_product_capability_contract_v2.sql"
+        ).read_text(encoding="utf-8")
+        enqueue_signature = migration.split(
+            "create or replace function public.ordax_enqueue_product_action_v1(",
+            1,
+        )[1].split(")", 1)[0]
+        self.assertNotIn("p_client_id", enqueue_signature)
+        worker = WORKER_SOURCE.read_text(encoding="utf-8")
+        legacy_handler = worker.split(
+            "async function createProductAction(", 1
+        )[1].split("async function getProductAction(", 1)[0]
+        self.assertIn("env.DB", legacy_handler)
+        self.assertNotIn("enqueueProductAction(", legacy_handler)
+
     def test_d1_callsite_count_can_only_shrink(self):
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
         source = WORKER_SOURCE.read_text(encoding="utf-8")
