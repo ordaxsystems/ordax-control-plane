@@ -234,24 +234,24 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertEqual(
             set(domain["cutover_blockers"]),
             {
-                "enqueue_and_grant_resolution_missing_client_id_binding",
                 "validated_client_identity_not_propagated_to_product_rpc",
                 "product_mcp_consumers_and_route_contracts_not_cut_over",
             },
         )
 
-        # The immutable applied migration lacks client_id in enqueue; existing
-        # grant groups and targets already distinguish client_id. The current
-        # legacy action handler must not silently route into that RPC.
+        # #79 installed an exact client-scoped RPC, but the route still lacks
+        # a verified client identity and remains on the legacy D1 handler.
         migration = (
             ROOT / "control-plane/supabase/migrations/"
-            "20261007184500_product_capability_contract_v2.sql"
+            "20261007203000_product_client_grant_isolation_v1.sql"
         ).read_text(encoding="utf-8")
-        enqueue_signature = migration.split(
-            "create or replace function public.ordax_enqueue_product_action_v1(",
-            1,
-        )[1].split(")", 1)[0]
-        self.assertNotIn("p_client_id", enqueue_signature)
+        self.assertIn("and g.client_id = p_client_id", migration)
+        self.assertIn("and v_existing.client_id = p_client_id", migration)
+        self.assertIn("drop function public.ordax_enqueue_product_action_v1(", migration)
+        adapter = (
+            ROOT / "control-plane/cloudflare/src/product_postgres_store.ts"
+        ).read_text(encoding="utf-8")
+        self.assertIn("if (!client || client.p_client_id === null)", adapter)
         worker = WORKER_SOURCE.read_text(encoding="utf-8")
         legacy_handler = worker.split(
             "async function createProductAction(", 1
