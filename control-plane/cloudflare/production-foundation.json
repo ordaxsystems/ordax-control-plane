@@ -1,5 +1,5 @@
 {
-  "version": 14,
+  "version": 15,
   "account_id": "42586bf13b61436219d21def299833e4",
   "worker_name": "ordax-control-plane-v3",
   "r2_bucket": "ordax-device-artifacts",
@@ -41,6 +41,7 @@
   "readiness_blockers": [
     "worker_d1_cutover_incomplete",
     "artifact_retention_authority_not_ready",
+    "engineering_device_deletion_lifecycle_not_ready",
     "product_device_setup_client_contract_not_verified",
     "worker_operator_auth_cutover_incomplete",
     "worker_not_provisioned",
