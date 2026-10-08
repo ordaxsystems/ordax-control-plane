@@ -362,6 +362,17 @@
         "path": "control-plane/supabase/migrations/20261007202000_memory_and_pack_audit_fk_indexes.sql",
         "blob_sha": "373c6f1a4babc515821e57eb9546f0bdfcf6e25f"
       }
+    },
+    {
+      "name": "20261007202500_default_entitlement_ledger_v1",
+      "applied_version": "20261008010731",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "ordaxsystems/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007202500_default_entitlement_ledger_v1.sql",
+        "blob_sha": "3aec4e75a9c0a4f5f01308a72ad716cb765ce18a"
+      }
     }
   ]
 }
