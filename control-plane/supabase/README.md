@@ -413,6 +413,35 @@ why the entitlement policy rechecks the current PostgreSQL Auth row.
 This guard covers entitlement SELECT and the default issuer, not a claim
 that every other OrdaX API or JWT session has been globally revoked.
 
+## Live session required for entitlement RLS
+
+Authenticated entitlement SELECT now requires a **current, database-backed
+Supabase Auth session**, not merely a JWT that has yet to expire. The existing
+`private.ordax_authenticated_entitlement_eligible_v1()` helper is updated
+**in place**: it reads `auth.jwt().session_id`, validates UUID syntax, and
+checks `auth.sessions(id, user_id)` against `auth.uid()`. Missing, malformed,
+deleted, other-user, or expired `not_after` session rows fail closed.
+The previous confirmed/not-anonymous/not-deleted/not-banned Auth checks and
+the exact authenticated RLS user/Space/date predicates are preserved.
+
+The helper stays zero-argument, volatile, SECURITY DEFINER with an empty
+search path and its original EXECUTE privilege restricted to
+`authenticated`. Client roles receive no direct SELECT on `auth.sessions`,
+no `private` schema USAGE, no extra database role, and no expanded
+entitlement-issuance authority. The request JWT must already be verified by
+Supabase/PostgREST; Postgres compares its claims against the canonical
+session table but does **not** independently verify JWT signatures.
+No Auth sessions table is copied or duplicated.
+
+When Supabase Auth deletes a session during sign-out, existing JWTs can
+remain cryptographically valid until expiration. They can no longer read
+entitlements through this policy because the session row is missing.
+This does not assert universal logout enforcement for every OrdaX endpoint:
+this database check protects the entitlement read path only. Custom
+JWTs without standard Supabase session IDs intentionally fail closed.
+Checking `not_after` does not independently implement every provider
+inactivity or time-box rule; Auth remains the owner of its session lifecycle.
+
 ## Memory authority
 
 Durable Memory uses a dedicated NOLOGIN/NOINHERIT `ordax_memory_executor`
