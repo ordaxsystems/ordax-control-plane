@@ -13,6 +13,7 @@ ACCOUNT_ID="${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID is required}"
 # Gate first: only Worker + CI-token blockers may remain. Reject D1, global
 # operator bearer, generic Supabase secrets, and any binding drift.
 python "$ROOT/scripts/cloudflare/check_deploy_readiness.py" --bootstrap
+bash "$ROOT/scripts/cloudflare/assert-current-main.sh" "$ROOT"
 
 : "${CLOUDFLARE_API_TOKEN:?Temporary bootstrap CLOUDFLARE_API_TOKEN is required}"
 
