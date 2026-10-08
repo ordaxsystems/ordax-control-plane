@@ -213,11 +213,9 @@ Não remover blocker por expectativa. Cada blocker só sai depois de evidência 
 
 ## Provisionamento local do Device Agent
 
-O setup oficial do Windows continua em:
+Este repositório **não contém o instalador do Device Agent Windows**. A referência anterior a um instalador nesse diretório estava desatualizada e foi retirada, para não encaminhar operadores a um arquivo inexistente. O provisionamento e a atualização do consumidor do endpoint `/v3/device/setup` pertencem ao projeto responsável pelo Device Agent, não ao Worker Cloudflare; não criar um instalador duplicado aqui.
 
-`scripts/windows/ordax-device-agent-setup.ps1`
-
-A credencial de dispositivo é gerada localmente e o backend recebe somente material derivado/hash conforme o contrato do runtime. Mudanças nesse fluxo devem preservar machine binding, fencing de execução e replay idempotente.
+Para o cutover canônico, o consumidor precisa enviar `device_kind` e `channel` explícitos no enrollment; a credencial deve ser gerada localmente, enviando ao backend apenas hashes/material derivado e respeitando machine binding, fencing de execução e replay idempotente. O blocker `product_device_setup_client_contract_not_verified` só poderá ser retirado após localizar o consumidor no repositório proprietário, validar o protocolo e executar os testes E2E.
 
 ## Product: boundary de grant groups PostgreSQL (ainda não ativado nas rotas)
 

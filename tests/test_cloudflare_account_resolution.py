@@ -281,6 +281,21 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         sources["untracked_legacy.ts"] = sample
         self.assertIn("untracked_legacy.ts", d1_source_names(sources) - tracked)
 
+    def test_documented_local_windows_scripts_exist(self):
+        readme = (
+            ROOT / "control-plane/cloudflare/README.md"
+        ).read_text(encoding="utf-8")
+        local_scripts = set(
+            re.findall(r"`(scripts/windows/[^\s`]+\.ps1)`", readme)
+        )
+        for relative_path in local_scripts:
+            self.assertTrue(
+                (ROOT / relative_path).is_file(),
+                f"README references a Windows script that does not exist: {relative_path}",
+            )
+        self.assertIn("product_device_setup_client_contract_not_verified", readme)
+        self.assertIn("projeto responsável pelo Device Agent", readme)
+
     def test_unsafe_legacy_retention_is_retired_before_first_deployment(self):
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
