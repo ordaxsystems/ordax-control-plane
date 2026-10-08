@@ -1,14 +1,14 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ordax-chatgpt",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "Connect ChatGPT to an authorized ORDAX device for grant-scoped projects, typed Computer Control, files, Git and specialized adapters.",
   "author": {
     "name": "ORDAX",
     "url": "https://ordax-control-plane-v3.ordax-ac1ca1b50d09.workers.dev/"
   },
   "homepage": "https://ordax-control-plane-v3.ordax-ac1ca1b50d09.workers.dev/",
-  "repository": "https://github.com/washingtonmsdj/ordax-control-plane",
+  "repository": "https://github.com/ordaxsystems/ordax-platform",
   "license": "Proprietary",
   "keywords": [
     "ordax",
@@ -130,7 +130,7 @@
       },
       "publication": {
         "countries": [],
-        "release_notes": "Corrects connector packaging, UTF-8 status text, bounded request parsing, and owner grant guidance derived from canonical profiles.",
+        "release_notes": "Corrects the canonical connector source repository and aligns provenance verification with the OrdaX organization; does not change grants, tool authority or the production MCP endpoint.",
         "translations": {
           "pt-BR": {
             "subtitle": "Use o ORDAX no ChatGPT",
