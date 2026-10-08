@@ -364,13 +364,13 @@
       }
     },
     {
-      "name": "20261007202500_product_client_grant_isolation_v1",
+      "name": "20261007203000_product_client_grant_isolation_v1",
       "applied_version": null,
       "state": "pending",
       "ledger_source_relation": "pending",
       "source": {
         "repository": "ordaxsystems/ordax-control-plane",
-        "path": "control-plane/supabase/migrations/20261007202500_product_client_grant_isolation_v1.sql",
+        "path": "control-plane/supabase/migrations/20261007203000_product_client_grant_isolation_v1.sql",
         "blob_sha": "7f5b9d772907aadfaaf1626ad67e5c7c86eff464"
       }
     }
