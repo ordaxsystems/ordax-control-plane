@@ -1,4 +1,5 @@
 import { readBoundedJsonObject } from "./request_json.ts";
+import { canonicalRemoteClient, isCanonicalUuid } from "./product_remote_grant_contract.ts";
 
 export interface ProductAuthEnv {
   PRODUCT_AUTH_ISSUER?: string;
@@ -13,6 +14,8 @@ export type ProductIdentity =
       issuer: string;
       audience: string | string[];
       expiresAt: number;
+      clientId: string | null;
+      role: string | null;
     }
   | {
       ok: false;
@@ -21,6 +24,28 @@ export type ProductIdentity =
     };
 
 type JsonRecord = Record<string, unknown>;
+
+/**
+ * An acting Product MCP client must present a Supabase OAuth access token.
+ * Its top-level client_id is signed by the canonical issuer; neither the
+ * request nor its payload can select a client kind/id.
+ *
+ * This boundary is not wired into legacy D1 handlers until the coordinated
+ * Product endpoint cutover tracked by #42.
+ */
+export type VerifiedProductMcpClient =
+  | {
+      ok: true;
+      ownerUserId: string;
+      clientKind: "product-mcp";
+      clientId: string;
+      expiresAt: number;
+    }
+  | {
+      ok: false;
+      error: string;
+      status: number;
+    };
 
 const PRODUCT_SUBJECT_RE = /^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,199}$/;
 const JWT_ALGORITHMS = new Set(["RS256", "ES256"]);
@@ -233,5 +258,36 @@ export async function authenticateProductRequest(
     issuer,
     audience: payload.aud as string | string[],
     expiresAt: exp,
+    // Read claims only AFTER signature verification. Never use headers, query
+    // strings, user_metadata or unverified JWT content for RPC authority.
+    clientId: typeof payload.client_id === "string" ? payload.client_id : null,
+    role: typeof payload.role === "string" ? payload.role : null,
+  };
+}
+
+/**
+ * Derive an OAuth-bound MCP client identity for the future PostgreSQL
+ * boundary. A normal user session without signed client_id must fail closed.
+ * Client id must never come from an action body or a forwarded header.
+ */
+export async function authenticateProductMcpClientRequest(
+  request: Request,
+  env: ProductAuthEnv,
+): Promise<VerifiedProductMcpClient> {
+  const identity = await authenticateProductRequest(request, env);
+  if (!identity.ok) return identity;
+  if (identity.role !== "authenticated" || !isCanonicalUuid(identity.subjectId)) {
+    return { ok: false, error: "product_mcp_client_identity_invalid", status: 403 };
+  }
+  const client = canonicalRemoteClient(identity.subjectId, "product-mcp", identity.clientId);
+  if (!client || client.p_client_id === null) {
+    return { ok: false, error: "product_mcp_oauth_client_required", status: 403 };
+  }
+  return {
+    ok: true,
+    ownerUserId: identity.subjectId,
+    clientKind: "product-mcp",
+    clientId: client.p_client_id,
+    expiresAt: identity.expiresAt,
   };
 }
