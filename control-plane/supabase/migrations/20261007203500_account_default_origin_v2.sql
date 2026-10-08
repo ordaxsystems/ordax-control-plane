@@ -86,6 +86,8 @@ begin
     join public.ordax_accounts a on a.user_id=u.id
    where u.id=p_subject_user_id
      and u.deleted_at is null
+     and u.is_anonymous is false
+     and u.confirmed_at is not null
    for key share of u,a;
 
   if not found then
