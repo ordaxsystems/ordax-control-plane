@@ -132,6 +132,15 @@ class ProductPostgresDeviceIdentityTests(unittest.TestCase):
         )
         self.assertEqual(manifest["baseline_env_db_calls"], 71)
         self.assertEqual(worker.count("env.DB"), 71)
+        foundation = json.loads(
+            (ROOT / "control-plane/cloudflare/production-foundation.json")
+            .read_text(encoding="utf-8")
+        )
+        self.assertIn(
+            "product_device_setup_client_contract_not_verified",
+            foundation["readiness_blockers"],
+        )
+        self.assertFalse(foundation["deployment_ready"])
 
     def test_worker_adapter_exposes_hash_only_device_methods(self) -> None:
         for method in (
