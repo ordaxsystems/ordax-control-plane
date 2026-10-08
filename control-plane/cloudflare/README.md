@@ -7,7 +7,7 @@ A autoridade arquitetural de produção está em `production-foundation.json`. E
 ## Arquitetura canônica de produção
 
 - **Cloudflare Worker**: edge/API boundary, autenticação de requests, gateway HTTP, WebSocket handoff e integração com os serviços do Control Plane.
-- **PostgreSQL / Supabase**: SSOT persistente. O projeto canônico é `ordax-platform-prod` / `jhfphsjptrpmtnzkpwud` em `sa-east-1`.
+- **PostgreSQL / Supabase**: SSOT persistente. O projeto canônico é `ordax-platform` / `jhfphsjptrpmtnzkpwud` em `sa-east-1`.
 - **Hyperdrive**: transporte canônico do Worker para PostgreSQL, com binding futuro `POSTGRES`.
 - **R2**: bytes de artifacts/binários. R2 não é SSOT de metadata.
 - **Durable Objects**: coordenação realtime/sessão. DO storage não substitui persistência de negócio.
@@ -31,7 +31,7 @@ O guard dessa regra roda em `tests/test_cloudflare_account_resolution.py`.
 
 O mapa canônico da remoção está em `d1-cutover-authority-map.json`. Ele agrupa o legado por domínio de authority, não por cópia de schema, e fixa o baseline atual de 75 call-sites `env.DB`. A CI permite apenas redução desse número e exige que toda tabela D1 referenciada esteja classificada exatamente uma vez.
 
-A auditoria de cutover encontrou 10 tabelas D1 legadas. Product grants/action queue/audit já possuem authorities PostgreSQL canônicas. Product pairing/link exige redesenho sobre identity/bindings canônicos; o registry de device é parcialmente coberto e ainda precisa separar Product de engineering/runtime. Artifact metadata/multipart e a queue genérica de engenharia continuam dependentes do contrato acompanhado em **#42**. Não criar tabelas PostgreSQL apenas para reproduzir o schema D1 1:1.
+A auditoria de cutover encontrou 10 tabelas D1 legadas. Product grants/action queue/audit já possuem tabelas e RPCs PostgreSQL, **mas o corte da execução segue bloqueado**: o enqueue/resolver ainda não discrimina `client_id`, enquanto a listagem de grants o faz. A identidade do client deve vir de credenciais verificadas, nunca de input arbitrário. Product pairing/link exige redesenho sobre identity/bindings canônicos; o registry de device é parcialmente coberto e ainda precisa separar Product de engineering/runtime. Artifact metadata/multipart e a queue genérica de engenharia continuam dependentes do contrato acompanhado em **#42**. Não criar tabelas PostgreSQL apenas para reproduzir o schema D1 1:1.
 
 ## Product PostgreSQL
 
@@ -198,6 +198,8 @@ A credencial de dispositivo é gerada localmente e o backend recebe somente mate
 O adapter `src/product_postgres_store.ts` oferece as RPCs canônicas `ordax_replace_remote_grant_group_v1`, `ordax_revoke_remote_grant_group_v1` e `ordax_list_product_targets_v1`. As assinaturas são derivadas da migration versionada `20261007185000_product_grant_groups_v2.sql`. Os arrays `text[]` são parâmetros tipados, não strings SQL montadas manualmente.
 
 A verificação estrutural em `src/product_remote_grant_contract.ts` aceita somente UUIDs reais de usuário, Space, Project e Device; grupos de capacidades com access mode individual e `client_kind/client_id` explícitos. Autorizar ownership, membership, binding de projeto e grant continua **exclusivamente** nas RPCs PostgreSQL.
+
+**Gate obrigatório de isolamento de cliente:** o domínio `product_remote_authority` permanece `partial` no mapa de corte D1 enquanto `ordax_enqueue_product_action_v1`/resolução de grants não receberem o `client_id` derivado de contexto autenticado, com testes de não-escalada entre clientes do mesmo `client_kind` e migração coordenada do MCP. Esse estado não declara que o schema PostgreSQL está ausente; declara que o contrato ponta a ponta **ainda não é seguro para o corte**.
 
 **Não houve cutover de endpoint.** Os handlers Product legados e os consumidores MCP ainda usam os contratos D1; estas funções de adapter não são ligadas a eles até a migração vertical coordenada de autenticação, enrollment, grants, targets, action/claim e status. É proibido fazer tradução implícita de `subject_id` arbitrário para UUID, de `project` slug para `project_id`, ou manter fallback/dual-write. Ver issue #42 e `d1-cutover-authority-map.json`.
 

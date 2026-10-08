@@ -19,7 +19,7 @@
         "ordax_product_action_requests"
       ],
       "target_authority": "postgresql",
-      "authority_state": "available",
+      "authority_state": "partial",
       "cutover_strategy": "replace_d1_calls_with_hyperdrive_rpc_boundary",
       "target_contracts": [
         "public.ordax_remote_capability_grants",
@@ -27,6 +27,11 @@
         "private.ordax_product_action_events",
         "private.ordax_product_action_audit",
         "ordax_edge_executor"
+      ],
+      "cutover_blockers": [
+        "enqueue_and_grant_resolution_missing_client_id_binding",
+        "validated_client_identity_not_propagated_to_product_rpc",
+        "product_mcp_consumers_and_route_contracts_not_cut_over"
       ]
     },
     {
