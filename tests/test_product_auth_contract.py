@@ -24,6 +24,17 @@ class ProductAuthContractTests(unittest.TestCase):
         self.assertNotIn('"none"', self.auth)
         self.assertNotIn('"HS256"', self.auth)
 
+    def test_jwks_fetch_uses_canonical_bounded_stream_parser(self) -> None:
+        self.assertIn('import { readBoundedJsonObject } from "./request_json.ts";', self.auth)
+        self.assertIn("readBoundedJsonObject(response, MAX_JWKS_RESPONSE_BYTES)", self.auth)
+        self.assertIn("const MAX_JWKS_KEYS = 64;", self.auth)
+        self.assertNotIn("await response.json()", self.auth)
+        reader = (
+            self.root / "control-plane" / "cloudflare" / "src" / "request_json.ts"
+        ).read_text(encoding="utf-8")
+        self.assertIn("request: Request | Response", reader)
+        self.assertIn("if (bytes > maxBytes) return null", reader)
+
     def test_product_identity_requires_explicit_issuer_audience_and_https_jwks(self) -> None:
         self.assertIn("PRODUCT_AUTH_ISSUER", self.auth)
         self.assertIn("PRODUCT_AUTH_AUDIENCE", self.auth)

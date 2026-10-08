@@ -1,6 +1,6 @@
-/** Read bounded UTF-8 JSON without buffering an unbounded request body. */
+/** Read a bounded JSON object from a Request or Response stream without unbounded buffering. */
 export async function readBoundedJsonObject(
-  request: Request,
+  request: Request | Response,
   maxBytes: number,
 ): Promise<Record<string, unknown> | null> {
   if (!request.body) return null;
