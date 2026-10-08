@@ -53,6 +53,18 @@ def d1_source_names(sources: dict[str, str]) -> set[str]:
     }
 
 
+WORKER_CODE_SUFFIXES = frozenset({".ts", ".tsx", ".mts", ".js", ".jsx", ".mjs"})
+
+
+def worker_source_texts(root: Path) -> dict[str, str]:
+    """Use one recursive source inventory in CI audits and production deploy."""
+    return {
+        path.relative_to(root).as_posix(): path.read_text(encoding="utf-8")
+        for path in sorted(root.rglob("*"))
+        if path.is_file() and path.suffix in WORKER_CODE_SUFFIXES
+    }
+
+
 def validate(data: dict, config: dict, source: str, account_id: str | None = None, *, bootstrap: bool = False) -> bool:
     canonical_account = data.get("account_id")
     if not isinstance(canonical_account, str) or not re.fullmatch(r"[0-9a-f]{32}", canonical_account):
@@ -160,10 +172,10 @@ def main() -> int:
         data = json.loads(FOUNDATION.read_text(encoding="utf-8"))
         with WRANGLER.open("rb") as stream:
             config = tomllib.load(stream)
-        source_paths = sorted(WORKER_SOURCES.glob("*.ts"))
-        if not source_paths:
+        source_files = worker_source_texts(WORKER_SOURCES)
+        if not source_files:
             raise DeployGateError("Cloudflare Worker sources not found")
-        source = "\n".join(path.read_text(encoding="utf-8") for path in source_paths)
+        source = "\n".join(source_files.values())
         ready = validate(
             data, config, source, os.environ.get("CLOUDFLARE_ACCOUNT_ID"),
             bootstrap=args.bootstrap,
