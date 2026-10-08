@@ -82,7 +82,6 @@ def validate(data: dict, config: dict, source: str, account_id: str | None = Non
         (item.get("name"), item.get("class_name")) for item in bindings
     } != {
         ("DEVICE_SESSIONS", "DeviceSession"),
-        ("ENROLLMENT_SESSIONS", "EnrollmentSession"),
     }:
         raise DeployGateError("non-canonical Durable Objects bindings")
 
