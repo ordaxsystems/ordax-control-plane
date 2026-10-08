@@ -1,7 +1,7 @@
 {
   "$schema": "ordax.supabase-migration-registry/1",
   "canonical_database": {
-    "project_name": "ordax-platform-prod",
+    "project_name": "ordax-platform",
     "project_ref": "jhfphsjptrpmtnzkpwud",
     "region": "sa-east-1",
     "persistent_ssot": "PostgreSQL"
