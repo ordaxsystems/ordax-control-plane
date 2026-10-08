@@ -64,13 +64,14 @@ const RPC_SPECS = {
       "p_project_id",
       "p_device_id",
       "p_client_kind",
+      "p_client_id",
       "p_capability",
       "p_access_mode",
       "p_payload",
       "p_idempotency_key",
       "p_expires_at",
     ],
-    casts: ["uuid", "uuid", "uuid", "uuid", "text", "text", "text", "jsonb", "text", "timestamptz"],
+    casts: ["uuid", "uuid", "uuid", "uuid", "text", "text", "text", "text", "jsonb", "text", "timestamptz"],
   },
   ordax_claim_product_action_v1: {
     keys: ["p_device_id", "p_agent_instance_id", "p_boot_id", "p_lease_seconds"],
@@ -286,7 +287,8 @@ export async function enqueueProductAction(
     spaceId: string;
     projectId: string | null;
     deviceId: string;
-    clientKind: "ordax-web" | "ordax-mobile" | "product-mcp";
+    clientKind: RemoteClientKind;
+    clientId: string;
     capability: string;
     accessMode: "read" | "write";
     payload: JsonObject;
@@ -294,6 +296,11 @@ export async function enqueueProductAction(
     expiresAt: string;
   },
 ): Promise<ProductActionEnqueueResult> {
+  // caller must derive this identity from verified credentials; never from payload
+  const client = canonicalRemoteClient(input.ownerUserId, input.clientKind, input.clientId);
+  if (!client || client.p_client_id === null) {
+    throw new ProductPostgresError("product_action_client_identity_invalid", 400);
+  }
   return callRpc<ProductActionEnqueueResult>(
     env,
     "ordax_enqueue_product_action_v1",
@@ -302,7 +309,8 @@ export async function enqueueProductAction(
       p_space_id: input.spaceId,
       p_project_id: input.projectId,
       p_device_id: input.deviceId,
-      p_client_kind: input.clientKind,
+      p_client_kind: client.p_client_kind,
+      p_client_id: client.p_client_id,
       p_capability: input.capability,
       p_access_mode: input.accessMode,
       p_payload: input.payload,
