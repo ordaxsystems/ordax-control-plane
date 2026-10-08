@@ -20,7 +20,7 @@ class ProfilePackAuthorityTests(unittest.TestCase):
         self.assertIn("nologin", sql)
         self.assertIn("noinherit", sql)
         self.assertIn("nobypassrls", sql)
-        self.assertIn("no direct", sql if "no direct" in sql else "no direct")
+        self.assertIn("direct table or sequence access", sql)
         self.assertIn("ordax_select_space_profile_pack_v1", sql)
         self.assertIn("ordax_clear_space_profile_pack_v1", sql)
         self.assertNotIn("insert into public.ordax_profile_packs", sql)
