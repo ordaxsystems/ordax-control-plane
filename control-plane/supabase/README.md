@@ -290,8 +290,8 @@ Policy/version updates do not silently regenerate one-time account defaults.
 The old v1 issuer accepted a caller-supplied event ID and the v1 revoker
 accepted an unverified revocation reason. Both SQL RPC endpoints were removed
 after confirming that the canonical database contains no grants, policies or
-receipts to migrate. Revocation stays **fail-closed** until a distinct verified
-authority/source contract exists; no compatibility wrapper remains.
+receipts to migrate. General-purpose revocation stays **fail-closed**; only Auth's
+verified soft-delete transition can revoke account-default grants; no compatibility wrapper remains.
 
 `ordax_entitlement_default_executor` remains a NOLOGIN/NOINHERIT/NOBYPASSRLS
 role with no direct table/sequence/private-schema privileges and only EXECUTE
@@ -304,6 +304,33 @@ of a user's real-world identity verification.
 Billing, promotion and administrative grants and revocations remain blocked
 pending independent proof, idempotency, audit, and operator authorization.
 Never expose this database executor through an unauthenticated endpoint.
+
+## Auth-owned entitlement revocation
+
+When Supabase Auth marks an account deleted by transitioning
+`auth.users.deleted_at` from NULL to a timestamp, a private PostgreSQL
+trigger expires its active `product-default` grants and atomically records
+`account_deleted:<grant_id>` revocation receipts in the existing private
+entitlement journal. This event comes from the canonical Auth row change, not
+from a client-supplied reason or externally invocable revoke RPC. Repeated
+writes to a previously deleted account do not generate duplicate receipts.
+
+The canonical account-default issuer acquires `FOR SHARE` on the verified
+`auth.users` and `ordax_accounts` rows **before** replay inspection and
+issuance. This conflicts with Auth's `FOR NO KEY UPDATE` lock on
+`deleted_at`, eliminating the race where an account could be soft-deleted
+after a weak `FOR KEY SHARE` check but before grant creation. The same
+validation rejects replay for deleted accounts. Trigger logic and issuer
+changes share one versioned database migration; neither a second mutable
+SSOT nor an additional LOGIN role is created.
+
+Physical Auth user deletion continues to cascade through the existing grant
+and journal foreign keys: the private receipt is for the soft-delete window,
+not an excuse to retain erased personal data. Other entitlement sources
+(billing, promotion, admin) deliberately remain outside this trigger's
+authority. Their revocation must come from independently verified lifecycle
+events or reviewed operators; do not reuse this Auth-only trigger as a
+general-purpose cancellation endpoint.
 
 ## Memory authority
 
