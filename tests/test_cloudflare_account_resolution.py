@@ -295,6 +295,32 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         sources["untracked_legacy.ts"] = sample
         self.assertIn("untracked_legacy.ts", d1_source_names(sources) - tracked)
 
+    def test_unsafe_legacy_retention_is_retired_before_first_deployment(self):
+        cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
+        foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
+        self.assertNotIn("retention.ts", cutover["legacy_source_callsite_ceilings"])
+        self.assertFalse((CLOUDFLARE_SRC / "retention.ts").exists())
+        self.assertEqual(
+            sum(cutover["legacy_source_callsite_ceilings"].values()), 89
+        )
+        self.assertEqual(
+            sum(d1_access_count(source) for source in d1_worker_sources().values()),
+            89,
+        )
+        for source in d1_worker_sources().values():
+            self.assertNotIn("runProductRetention", source)
+        self.assertNotIn("async scheduled(", WORKER_SOURCE.read_text(encoding="utf-8"))
+        for config_name in ("wrangler.toml", "wrangler.ci.toml"):
+            config_path = ROOT / "control-plane/cloudflare" / config_name
+            with config_path.open("rb") as handle:
+                config = tomllib.load(handle)
+            self.assertFalse((config.get("triggers") or {}).get("crons"))
+        self.assertFalse(foundation["deployment_ready"])
+        self.assertIn(
+            "artifact_retention_authority_not_ready",
+            foundation["readiness_blockers"],
+        )
+
     def test_d1_cutover_domains_are_explicit_about_authority_readiness(self):
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
         valid_states = {"available", "partial", "missing", "redesign_required", "retired"}

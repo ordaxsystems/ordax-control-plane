@@ -29,7 +29,6 @@ import { handleOrdaxMcp } from "./mcp_http";
 import { scopeProductResult } from "./product_results";
 import { oauthConsentResponse } from "./oauth_consent";
 import { openAiAppsChallenge, publicProductPage } from "./public_pages";
-import { runProductRetention } from "./retention";
 import { readBoundedJsonObject } from "./request_json";
 import {
   enrollProductDevice,
@@ -2234,18 +2233,6 @@ async function downloadArtifact(request: Request, env: Env, artifactId: string):
 }
 
 export default {
-  async scheduled(
-    _controller: ScheduledController,
-    env: Env,
-    ctx: ExecutionContext,
-  ): Promise<void> {
-    ctx.waitUntil(
-      runProductRetention(env).then((stats) => {
-        console.log(JSON.stringify({ event: "product_retention", ...stats }));
-      }),
-    );
-  },
-
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const parts = url.pathname.split("/").filter(Boolean);

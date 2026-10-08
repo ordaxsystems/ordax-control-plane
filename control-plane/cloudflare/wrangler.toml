@@ -13,9 +13,6 @@ redact_query_string = true
 enabled = true
 invocation_logs = true
 
-[triggers]
-crons = ["17 3 * * *"]
-
 [vars]
 PRODUCT_AUTH_ISSUER = "https://jhfphsjptrpmtnzkpwud.supabase.co/auth/v1"
 PRODUCT_AUTH_AUDIENCE = "authenticated"
