@@ -217,6 +217,36 @@ and repository IDs plus bounded `owner/repository` full name) and one selected
 GitHub repository per Project. No connection mutation RPC is created until the
 separate approval/audit gateway exists.
 
+## Entitlements and Profile Pack assignment
+
+Entitlement grants are authorization/billing evidence, not a general CRUD
+surface. The canonical database retains them as server-owned read-only rows.
+No ad-hoc entitlement issuer or billing operator is created here; issuing or
+revoking financial/product entitlements requires a separately reviewed source,
+idempotency contract and audit boundary.
+
+Profile Pack definitions (`public.ordax_profile_packs`) stay migration-owned
+and versioned. Draft/retired manifests are not exposed through the client
+SELECT policy, which admits only active catalog versions. The two bootstrap
+packs remain draft until a reviewed activation migration.
+
+An active Space administrator may select an existing **active** pack version or
+clear the selection through `ordax_profile_pack_executor` (NOLOGIN, NOINHERIT,
+NOBYPASSRLS). This executor has no direct table, sequence, or private-schema
+authority: only `ordax_select_space_profile_pack_v1` and
+`ordax_clear_space_profile_pack_v1` are executable. Both require the trusted
+server to authenticate the actor before passing its UUID to the RPC.
+
+The current selection SSOT remains `public.ordax_space_profile_packs`.
+Changes are serialized per Space, repeated commands are idempotent, and every
+effective selection/clear is recorded in the private append-only
+`ordax_space_profile_pack_events` table. This record is not another current
+state, and has no direct client/operator access.
+
+Arbitrary per-Space configuration is intentionally unavailable at this stage:
+selection stores an empty JSON object rather than accepting an unreviewed
+configuration containing credentials or executable instructions.
+
 ## Memory authority
 
 Durable Memory uses a dedicated NOLOGIN/NOINHERIT `ordax_memory_executor`
