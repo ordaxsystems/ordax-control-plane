@@ -115,7 +115,7 @@ begin
      or v_policy not like '%ordax_can_access_space%'
      or v_definition not like '%auth.sessions%'
      or v_definition not like '%session_id%'
-     or v_definition not like '%s.user_id = v_subject_user_id%'
+     or v_definition not like '%s.user_id=v_subject_user_id%'
      or v_definition not like '%not_after%'
      or v_definition not like '%banned_until%'
   then
