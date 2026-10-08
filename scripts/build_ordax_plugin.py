@@ -29,6 +29,8 @@ def validate_package() -> dict:
     version = manifest.get("version")
     if not isinstance(version, str) or not re.fullmatch(r"(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)", version):
         raise ValueError("plugin version must be a strict semantic version")
+    if manifest.get("repository") != "https://github.com/ordaxsystems/ordax-platform":
+        raise ValueError("connector source must reference canonical OrdaX platform repository")
     interface = manifest["extensions"]["com.openai"]["interface"]
     subtitle = interface.get("shortDescription")
     if not isinstance(subtitle, str) or not 1 <= len(subtitle) <= 30:

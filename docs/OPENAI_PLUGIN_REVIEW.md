@@ -58,7 +58,7 @@ Use `.github/workflows/plugin-review-package.yml` on the verified `main` revisio
 
 The artifact contains only:
 
-- `ordax-chatgpt-plugin-0.4.2.zip`;
+- `ordax-chatgpt-plugin-<version>.zip`, where `<version>` is read from `plugins/ordax-chatgpt/plugin.json`;
 - its matching `.sha256` file.
 
 The ZIP contains one `ordax-chatgpt/` directory with exactly `plugin.json`, `mcp.json` and `assets/ordax.svg`. Legacy `ordax-dev-plugin-*` or `ordax-studio-plugin-*` package names are rejected by the canonical packaging flow.
