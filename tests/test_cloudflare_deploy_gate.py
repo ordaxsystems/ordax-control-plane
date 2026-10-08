@@ -14,6 +14,7 @@ FOUNDATION = ROOT / "control-plane/cloudflare/production-foundation.json"
 WRANGLER = ROOT / "control-plane/cloudflare/wrangler.toml"
 LEGACY = ROOT / "scripts/cloudflare/deploy-v3.sh"
 ROUTINE = ROOT / "scripts/cloudflare/deploy-production-v3.sh"
+PUBLIC_SMOKE = ROOT / "scripts/verify_cloudflare_public.py"
 
 spec = importlib.util.spec_from_file_location("ordax_cloudflare_deploy_gate", GUARD)
 gate = importlib.util.module_from_spec(spec)
@@ -88,6 +89,11 @@ class CloudflareDirectDeployGateTests(unittest.TestCase):
                                  env=env, capture_output=True, text=True)
         self.assertEqual(preview.returncode, 0, preview.stderr)
         self.assertIn("BLOCKED", preview.stdout)
+
+    def test_public_smoke_must_not_fall_back_to_legacy_account(self):
+        source = PUBLIC_SMOKE.read_text(encoding="utf-8")
+        self.assertNotIn("ordax-ac1ca1b50d09", source)
+        self.assertIn("Pass --base-url or ORDAX_E2E_CONTROL_PLANE_URL", source)
 
     def test_retired_bootstrap_exits_without_deploy_credentials(self):
         result = subprocess.run(["bash", str(LEGACY)], cwd=ROOT,
