@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "ordax-chatgpt",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "description": "Connect ChatGPT to an authorized ORDAX device for grant-scoped projects, typed Computer Control, files, Git and specialized adapters.",
   "author": {
     "name": "ORDAX",
@@ -93,9 +93,9 @@
             },
             {
               "description": "Perform one bounded project write and inspect Git state.",
-              "prompt": "Create review-output.txt in ordax-review-demo containing plugin review write test, then show Git status.",
+              "prompt": "Create docs/review-output.txt in ordax-review-demo containing plugin review write test, then show Git status.",
               "tools_triggered": "project_text_write, git_status",
-              "expected_behavior": "Create only the requested review file and report its uncommitted Git state."
+              "expected_behavior": "Create only the authorized docs/review-output.txt file and report its uncommitted Git state."
             }
           ],
           "negative": [
@@ -130,7 +130,7 @@
       },
       "publication": {
         "countries": [],
-        "release_notes": "Corrects the canonical connector source repository and aligns provenance verification with the OrdaX organization; does not change grants, tool authority or the production MCP endpoint.",
+        "release_notes": "Aligns the isolated ChatGPT connector review write scenario with the Device Agent's approved project documentation paths. No grant, OAuth, or MCP endpoint changes.",
         "translations": {
           "pt-BR": {
             "subtitle": "Use o ORDAX no ChatGPT",

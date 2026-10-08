@@ -107,9 +107,17 @@ Expected safe files:
 
 - `README.md` containing `REVIEW_MARKER`;
 - `sample.py`;
-- optional `review-output.txt` created during the write test.
+- a `docs/` directory for review outputs; `docs/review-output.txt` is created during the write test.
 
 No secret, token, production file, personal document or unrelated repository should exist inside this fixture.
+
+### Provisionamento verificável da fixture local
+
+A concessão remota **não cria a pasta local do projeto**. Antes de iniciar o E2E, consulte `projects.list` e confirme que `ordax-review-demo` está registrado e `available: true`; `available: false` significa que a pasta configurada não existe ou está indisponível. No computador de revisão, crie a fixture **somente no caminho canônico do projeto registrado**, não em um caminho presumido, e inicialize um repositório Git local isolado. Preencha `README.md` com `REVIEW_MARKER`, `sample.py` com código não sensível e crie o diretório `docs/`; registre um commit inicial dos dois arquivos. Não sobrescreva uma fixture existente nem aplique mudanças a projetos reais.
+
+A política `project.text_write` do Device Agent em `ordaxsystems/ordax-runtime/ordax_dev_agent/project_text_actions.py` permite documentação dentro de `docs/`, mas **não** um novo `review-output.txt` na raiz. Não amplie a allowlist para satisfazer o teste. Envie `create: true` para `docs/review-output.txt` e valide em sequência `project.text_read`, `git.status` e a rejeição de uma tentativa de sobrescrita com `expected_sha256` incorreto.
+
+Se `projects.list` confirmar o registro, mas `available: false`, interrompa a revisão e repare a fixture no PC antes de tentar `project.text_read`, `project.search_text` ou `git.status`. Nunca trate registro remoto como prova de disponibilidade local.
 
 ## Positive review prompts
 
@@ -139,9 +147,9 @@ Record and test these in a fresh ChatGPT conversation with only **ORDAX for Chat
    - Expected tools: `project_text_read`, `project_search`.
    - Expected result: content and bounded matches from the granted project only.
 
-7. `Create review-output.txt in ordax-review-demo containing the text plugin review write test, then show Git status.`
+7. `Create docs/review-output.txt in ordax-review-demo containing the text plugin review write test, then show Git status.`
    - Expected tools: `project_text_write`, `git_status`.
-   - Expected result: only the requested file is created and Git status reflects it as uncommitted.
+   - Expected result: only `docs/review-output.txt` is created and Git status reflects it as uncommitted.
 
 ## Negative review prompts
 

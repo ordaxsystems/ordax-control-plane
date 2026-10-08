@@ -113,6 +113,18 @@ class OrdaxChatGptConnectorPackageTests(unittest.TestCase):
         )
         self.assertTrue(any("powershell.exe" in case.get("prompt", "") for case in review["negative"]))
 
+    def test_review_write_targets_only_approved_document_directory(self):
+        manifest = json.loads((PLUGIN_ROOT / "plugin.json").read_text(encoding="utf-8"))
+        scenarios = manifest["extensions"]["com.openai"]["review"]["test_cases"]["positive"]
+        write_cases = [case for case in scenarios if "project_text_write" in case.get("tools_triggered", "")]
+        self.assertEqual(len(write_cases), 1)
+        self.assertIn("docs/review-output.txt", write_cases[0]["prompt"])
+        self.assertNotIn("Create review-output.txt in ", write_cases[0]["prompt"])
+        review_docs = (ROOT / "docs" / "OPENAI_PLUGIN_REVIEW.md").read_text(encoding="utf-8")
+        self.assertIn("available: true", review_docs)
+        self.assertIn("docs/review-output.txt", review_docs)
+        self.assertIn("expected_sha256", review_docs)
+
     def test_submission_assets_are_present(self):
         self.assertTrue((PLUGIN_ROOT / "assets" / "ordax.svg").is_file())
 
