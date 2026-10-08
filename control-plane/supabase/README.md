@@ -276,8 +276,8 @@ The current account-default API is
 `ordax_issue_account_default_entitlement_v2(subject_user_id, entitlement_key,
 policy_version)`. Its source event is **not** supplied by a caller: PostgreSQL
 derives the one-time `account_created:<user_id>:<entitlement_key>` identifier
-from a real, non-deleted `auth.users` row and its matching bootstrapped
-`ordax_accounts` record. Those two rows are locked for key share while the
+from a real, non-deleted, non-anonymous and confirmed `auth.users` row
+and its matching bootstrapped `ordax_accounts` record. Those two rows are locked for key share while the
 transaction issues the grant. Event receipts remain private, deduplicated,
 auditable, and fail closed on replay with a different policy version.
 
@@ -298,8 +298,8 @@ role with no direct table/sequence/private-schema privileges and only EXECUTE
 on the v2 issuer. No runtime LOGIN membership or credential is provisioned for
 it. A trusted service must still authenticate *who may request* the account
 default issuance; the database proves the account-created origin, not the
-identity of the network caller. This is not a payment signature, not a billing
-receipt and not a claim that an end user completed identity verification.
+identity of the network caller. This is not a payment signature, not a billing receipt and not a claim
+of a user's real-world identity verification.
 
 Billing, promotion and administrative grants and revocations remain blocked
 pending independent proof, idempotency, audit, and operator authorization.
