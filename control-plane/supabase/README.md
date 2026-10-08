@@ -294,21 +294,22 @@ The current account-default API is
 policy_version)`. Its source event is **not** supplied by a caller: PostgreSQL
 derives the one-time `account_created:<user_id>:<entitlement_key>` identifier
 from a real, non-deleted, non-anonymous and confirmed `auth.users` row
-and its matching bootstrapped `ordax_accounts` record. Those two rows are locked for key share while the
-transaction issues the grant. Event receipts remain private, deduplicated,
+and its matching bootstrapped `ordax_accounts` record. Those two rows are locked `FOR SHARE` while the transaction issues the grant. Event receipts remain private, deduplicated,
 auditable, and fail closed on replay with a different policy version.
 
 Issuance is account-scoped and takes the value and duration only from an
 active, versioned database policy, not arbitrary JSON or dates from a caller.
-Each account/entitlement key has exactly one account-created event; retries
-replay its original receipt and cannot mint another entitlement after expiry.
+Each account/entitlement key has exactly one account-created event. Retries
+replay a successful receipt **only while its grant is active and unrevoked**.
+Expired or revoked receipts return `account_default_grant_inactive`, never
+`ok: true`, and cannot mint another entitlement.
 Policy/version updates do not silently regenerate one-time account defaults.
 
 The old v1 issuer accepted a caller-supplied event ID and the v1 revoker
 accepted an unverified revocation reason. Both SQL RPC endpoints were removed
 after confirming that the canonical database contains no grants, policies or
-receipts to migrate. General-purpose revocation stays **fail-closed**; only Auth's
-verified soft-delete transition can revoke account-default grants; no compatibility wrapper remains.
+receipts to migrate. General-purpose revocation stays **fail-closed**; only verified
+Auth eligibility-loss transitions can revoke account-default grants; no compatibility wrapper remains.
 
 `ordax_entitlement_default_executor` remains a NOLOGIN/NOINHERIT/NOBYPASSRLS
 role with no direct table/sequence/private-schema privileges and only EXECUTE
@@ -356,6 +357,31 @@ Hard deletion cascades through the existing Auth/entitlement foreign keys.
 No independent entitlement SSOT, LOGIN role, generic revocation RPC or
 billing/admin authority is introduced. Other grant sources continue to need
 their own verified revocation contract.
+
+## Effective entitlement reads and replay contract
+
+`public.ordax_entitlement_grants` is the persistent grant SSOT and keeps
+historical validity intervals; it does **not** imply that every row represents
+a current permission. The existing authenticated SELECT RLS policy now
+requires `valid_from <= clock_timestamp()` and
+`valid_until IS NULL OR valid_until > clock_timestamp()`, in addition to
+its existing user/Space ownership condition. Thus the Data API never returns
+an expired, revoked, or not-yet-active grant as a current entitlement.
+The private event journal remains the audit source for past issuance and
+revocation; it was not exposed to client roles.
+The RLS clock is intentionally the same real clock used by the issuer, so
+new grants are visible immediately even if issuance and SELECT run inside
+one multi-statement command. The corrective migration is separate and
+versioned; neither previously applied SQL file was rewritten.
+
+The existing `ordax_issue_account_default_entitlement_v2` verifies Auth
+eligibility before looking up a replay. For a prior issued event it verifies
+that the exact referenced grant is still effective and has no revocation
+receipt. If not, it returns `ok: false`, `changed: false`,
+`replayed: true` and error `account_default_grant_inactive`. This
+distinguishes idempotent history from active authorization, without adding
+a second issuance path, granting an executor more privileges, or reviving
+a revoked account-default benefit.
 
 ## Memory authority
 

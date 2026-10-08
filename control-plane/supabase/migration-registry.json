@@ -428,6 +428,28 @@
         "path": "control-plane/supabase/migrations/20261007205000_auth_eligibility_default_revocation_v2.sql",
         "blob_sha": "5d08e34df49d4ab477452a8ba48926b33c1a31d0"
       }
+    },
+    {
+      "name": "20261007205500_entitlement_effective_read_and_replay_v1",
+      "applied_version": "20261008020317",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "ordaxsystems/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007205500_entitlement_effective_read_and_replay_v1.sql",
+        "blob_sha": "e71fa67aff76d6e7ea369a7b4d41f5e05edc2d28"
+      }
+    },
+    {
+      "name": "20261007210000_entitlement_rls_live_clock_v1",
+      "applied_version": "20261008020530",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "ordaxsystems/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007210000_entitlement_rls_live_clock_v1.sql",
+        "blob_sha": "bc3cb21ff1483b2bbdb244bbe37c6e34402098f2"
+      }
     }
   ]
 }
