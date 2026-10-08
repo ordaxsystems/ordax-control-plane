@@ -17,7 +17,7 @@ class OrdaxChatGptConnectorPackageTests(unittest.TestCase):
     def test_portable_plugin_manifest_is_valid(self):
         manifest = json.loads((PLUGIN_ROOT / "plugin.json").read_text(encoding="utf-8-sig"))
         self.assertEqual(manifest["name"], "ordax-chatgpt")
-        self.assertEqual(manifest["repository"], "https://github.com/washingtonmsdj/ordax-control-plane")
+        self.assertEqual(manifest["repository"], "https://github.com/ordaxsystems/ordax-platform")
         self.assertEqual(
             manifest["extensions"]["com.openai"]["interface"]["displayName"],
             "ORDAX for ChatGPT",
@@ -36,6 +36,12 @@ class OrdaxChatGptConnectorPackageTests(unittest.TestCase):
         self.assertIn("does not own ORDAX Studio", interface["longDescription"])
         self.assertIn("Full Access", interface["longDescription"])
         self.assertIn("cannot mint its own grants", interface["longDescription"])
+
+    def test_package_version_matches_canonical_manifest(self):
+        manifest = json.loads((PLUGIN_ROOT / "plugin.json").read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory() as directory:
+            archive, _ = build_archive(Path(directory))
+            self.assertEqual(archive.name, f"ordax-chatgpt-plugin-{manifest[\'version\']}.zip")
 
     def test_connector_has_single_authoritative_source_tree(self):
         self.assertTrue(PLUGIN_ROOT.is_dir())
