@@ -107,7 +107,7 @@ O workflow `Deploy ORDAX Control Plane`:
 
 1. faz checkout do SHA exato que passou na CI;
 2. valida `production-foundation.json`;
-3. só executa o job de deploy quando `deployment_ready=true` e não existem blockers;
+3. valida `production-foundation.json` e `wrangler.toml` pelo guard SSOT `scripts/cloudflare/check_deploy_readiness.py` e só executa o job de deploy quando `deployment_ready=true` e não existem blockers;
 4. usa o account id vindo do foundation, sem segunda fonte de verdade;
 5. exige `CLOUDFLARE_API_TOKEN` no environment GitHub `cloudflare-v3`;
 6. chama `scripts/cloudflare/deploy-production-v3.sh`;
@@ -123,8 +123,9 @@ Como o Worker ainda não existe, o bootstrap e o CI permanente são autoridades 
 
 ### Scripts
 
-- `scripts/cloudflare/deploy-production-v3.sh`: deploy rotineiro do Worker já pronto.
-- `scripts/cloudflare/deploy-v3.sh`: bootstrap legado. Ele recusa explicitamente criar D1 na conta Cloudflare dedicada do OrdaX.
+- `scripts/cloudflare/check_deploy_readiness.py`: guard SSOT do deploy. O workflow pode executar `--allow-blocked` apenas para validar o estado e registrar o output, mas **o script de deploy direto exige readiness verdadeira** antes de consumir credenciais ou chamar a API da Cloudflare. Também verifica os bindings canônicos e a ausência de D1, bearer global e backend secrets no source ao liberar o deploy.
+- `scripts/cloudflare/deploy-production-v3.sh`: deploy rotineiro do Worker já pronto, sempre submetido ao mesmo guard local.
+- `scripts/cloudflare/deploy-v3.sh`: **bootstrap D1 legado aposentado**, recusa qualquer execução; não cria D1, não altera R2 e não publica Worker. Um bootstrap inicial sem D1 exige procedimento específico, versionado e validado antes do uso.
 
 Não adicionar fallback para account antigo, Worker antigo ou D1 antigo.
 

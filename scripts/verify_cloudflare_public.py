@@ -45,12 +45,11 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--base-url",
-        default=os.environ.get(
-            "ORDAX_E2E_CONTROL_PLANE_URL",
-            "https://ordax-control-plane-v3.ordax-ac1ca1b50d09.workers.dev",
-        ),
+        default=os.environ.get("ORDAX_E2E_CONTROL_PLANE_URL"),
     )
     args = parser.parse_args()
+    if not args.base_url:
+        parser.error("Pass --base-url or ORDAX_E2E_CONTROL_PLANE_URL; no legacy fallback is allowed")
     run(args.base_url)
     print("cloudflare-v3 public verification OK")
     return 0

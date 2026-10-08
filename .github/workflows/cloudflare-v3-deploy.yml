@@ -36,67 +36,7 @@ jobs:
         id: foundation
         shell: bash
         run: |
-          python - <<'PY'
-          import json
-          import os
-          import re
-          from pathlib import Path
-
-          path = Path("control-plane/cloudflare/production-foundation.json")
-          data = json.loads(path.read_text(encoding="utf-8"))
-
-          account_id = str(data.get("account_id") or "")
-          if re.fullmatch(r"[0-9a-f]{32}", account_id) is None:
-              raise SystemExit("invalid canonical Cloudflare account_id")
-
-          authorities = data.get("authorities") or {}
-          if authorities.get("persistent") != "postgresql":
-              raise SystemExit("persistent authority must be PostgreSQL")
-          if authorities.get("artifacts") != "r2":
-              raise SystemExit("artifact authority must be R2")
-          if authorities.get("realtime_session_coordination") != "durable_objects":
-              raise SystemExit("realtime/session authority must be Durable Objects")
-
-          postgres = data.get("postgres") or {}
-          if postgres.get("runtime_transport") != "hyperdrive":
-              raise SystemExit("PostgreSQL runtime transport must be Hyperdrive")
-          if postgres.get("hyperdrive_binding") != "POSTGRES":
-              raise SystemExit("canonical Hyperdrive binding must be POSTGRES")
-          if postgres.get("query_cache") != "disabled":
-              raise SystemExit("Hyperdrive query cache must stay disabled for authority paths")
-
-          policy = data.get("policy") or {}
-          if policy.get("allow_d1") is not False:
-              raise SystemExit("production foundation must forbid D1")
-          if policy.get("allow_dual_write") is not False:
-              raise SystemExit("production foundation must forbid dual-write")
-
-          forbidden_runtime_secrets = set(policy.get("forbidden_runtime_secrets") or [])
-          required_forbidden = {"SUPABASE_SERVER_KEY", "SUPABASE_SERVICE_ROLE_KEY"}
-          if not required_forbidden.issubset(forbidden_runtime_secrets):
-              raise SystemExit("generic Supabase server secrets must be forbidden in the Worker runtime")
-
-          if (data.get("security") or {}).get("require_two_factor") is not True:
-              raise SystemExit("production foundation must require 2FA")
-
-          ready = data.get("deployment_ready") is True
-          blockers = data.get("readiness_blockers")
-          if not isinstance(blockers, list):
-              raise SystemExit("readiness_blockers must be an array")
-          if ready and blockers:
-              raise SystemExit("deployment_ready cannot be true while blockers remain")
-          if not ready and not blockers:
-              raise SystemExit("fail-closed foundation requires explicit blockers while not ready")
-
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"account_id={account_id}\n")
-              output.write(f"deployment_ready={'true' if ready else 'false'}\n")
-
-          print(
-              "Cloudflare production deploy is "
-              + ("READY" if ready else f"BLOCKED ({len(blockers)} explicit blockers)")
-          )
-          PY
+          python scripts/cloudflare/check_deploy_readiness.py --allow-blocked --github-output "$GITHUB_OUTPUT"
 
   deploy:
     needs: foundation

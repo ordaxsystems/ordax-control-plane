@@ -291,15 +291,17 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertNotIn("secrets.CLOUDFLARE_ACCOUNT_ID", workflow)
         self.assertNotIn(OLD_ACCOUNT_ID, workflow)
         self.assertNotIn(DEDICATED_ACCOUNT_ID, workflow)
-        self.assertIn("control-plane/cloudflare/production-foundation.json", workflow)
+        self.assertIn(
+            "control-plane/cloudflare/production-foundation.json",
+            (ROOT / "scripts/cloudflare/check_deploy_readiness.py").read_text(encoding="utf-8"),
+        )
         self.assertIn("needs.foundation.outputs.account_id", workflow)
         self.assertIn("needs.foundation.outputs.deployment_ready == 'true'", workflow)
         self.assertIn("secrets.CLOUDFLARE_API_TOKEN", workflow)
         self.assertNotIn("secrets.ORDAX_OPERATOR_TOKEN", workflow)
-        self.assertIn('runtime_transport") != "hyperdrive"', workflow)
-        self.assertIn('hyperdrive_binding") != "POSTGRES"', workflow)
-        self.assertIn('query_cache") != "disabled"', workflow)
-        self.assertIn("generic Supabase server secrets must be forbidden", workflow)
+        self.assertIn("check_deploy_readiness.py --allow-blocked", workflow)
+        self.assertIn('--github-output "$GITHUB_OUTPUT"', workflow)
+        self.assertNotIn("python - <<'PY'", workflow)
 
     def test_not_ready_foundation_skips_deploy_instead_of_creating_false_incident(self):
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
@@ -310,21 +312,21 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertIn("deploy:", workflow)
         self.assertNotIn("Enforce dedicated-account migration gate", workflow)
 
-    def test_legacy_bootstrap_cannot_create_d1_in_dedicated_account(self):
+    def test_legacy_d1_bootstrap_is_retired_unconditionally(self):
         script = BOOTSTRAP.read_text(encoding="utf-8")
-        self.assertIn("production-foundation.json", script)
-        self.assertIn(
-            "Refusing legacy D1 bootstrap on the dedicated OrdaX Cloudflare account.",
-            script,
-        )
-        self.assertIn('if [[ "$CLOUDFLARE_ACCOUNT_ID" == "$TARGET_ACCOUNT_ID" ]]', script)
+        self.assertIn("Legacy D1/bootstrap deployment has been retired", script)
+        self.assertIn("exit 3", script)
+        self.assertNotIn("wrangler d1 create", script)
+        self.assertNotIn("wrangler deploy", script)
+        self.assertNotIn("d1 migrations apply", script)
 
-    def test_privileged_bootstrap_can_still_resolve_non_target_account_fail_closed(self):
-        script = BOOTSTRAP.read_text(encoding="utf-8")
-        self.assertIn("/client/v4/accounts?per_page=50", script)
-        self.assertIn("len(ids) != 1", script)
-        self.assertIn("set CLOUDFLARE_ACCOUNT_ID explicitly", script)
-        self.assertNotIn("CLOUDFLARE_ACCOUNT_ID is required", script)
+    def test_routine_script_runs_canonical_gate_before_cloudflare_calls(self):
+        script = ROUTINE_DEPLOY.read_text(encoding="utf-8")
+        self.assertIn('python "$ROOT/scripts/cloudflare/check_deploy_readiness.py"', script)
+        gate_at = script.index("check_deploy_readiness.py")
+        self.assertLess(gate_at, script.index('CLOUDFLARE_API_TOKEN:?'))
+        self.assertLess(gate_at, script.index('cloudflare_api()'))
+        self.assertLess(gate_at, script.index('npx --yes "wrangler@'))
 
     def test_routine_deploy_has_no_legacy_account_or_workers_dev_url_fallback(self):
         script = ROUTINE_DEPLOY.read_text(encoding="utf-8")
