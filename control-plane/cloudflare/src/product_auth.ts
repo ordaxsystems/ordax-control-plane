@@ -1,3 +1,5 @@
+import { readBoundedJsonObject } from "./request_json";
+
 export interface ProductAuthEnv {
   PRODUCT_AUTH_ISSUER?: string;
   PRODUCT_AUTH_AUDIENCE?: string;
@@ -23,6 +25,8 @@ type JsonRecord = Record<string, unknown>;
 const PRODUCT_SUBJECT_RE = /^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,199}$/;
 const JWT_ALGORITHMS = new Set(["RS256", "ES256"]);
 const CLOCK_SKEW_SECONDS = 60;
+const MAX_JWKS_RESPONSE_BYTES = 128 * 1024;
+const MAX_JWKS_KEYS = 64;
 
 function isRecord(value: unknown): value is JsonRecord {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -125,8 +129,8 @@ async function loadJwk(env: ProductAuthEnv, kid: string, alg: string): Promise<J
   });
   if (!response.ok) return null;
 
-  const body = await response.json() as unknown;
-  if (!isRecord(body) || !Array.isArray(body.keys)) return null;
+  const body = await readBoundedJsonObject(response, MAX_JWKS_RESPONSE_BYTES);
+  if (!body || !Array.isArray(body.keys) || body.keys.length > MAX_JWKS_KEYS) return null;
   for (const raw of body.keys) {
     if (
       isRecord(raw)
