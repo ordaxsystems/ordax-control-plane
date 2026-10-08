@@ -1,8 +1,6 @@
 {
-  "version": 1,
-  "source": "control-plane/cloudflare/src/index.ts",
+  "version": 2,
   "legacy_binding": "DB",
-  "baseline_env_db_calls": 71,
   "tracking_issue": 42,
   "policy": {
     "allow_callsite_growth": false,
@@ -94,5 +92,13 @@
     "no_dual_write",
     "hyperdrive_adapter_live",
     "tests_green"
-  ]
+  ],
+  "source_root": "control-plane/cloudflare/src",
+  "legacy_source_callsite_ceilings": {
+    "index.ts": 71,
+    "retention.ts": 5,
+    "product_device_grants.ts": 6,
+    "product_intelligence_grants.ts": 6,
+    "product_project_grants.ts": 6
+  }
 }
