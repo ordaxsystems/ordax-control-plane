@@ -29,7 +29,7 @@ O D1 atual está congelado:
 
 O guard dessa regra roda em `tests/test_cloudflare_account_resolution.py`.
 
-O mapa canônico da remoção está em `d1-cutover-authority-map.json`. Ele agrupa o legado por domínio de authority, não por cópia de schema, e fixa o baseline atual de 75 call-sites `env.DB`. A CI permite apenas redução desse número e exige que toda tabela D1 referenciada esteja classificada exatamente uma vez.
+O mapa canônico da remoção está em `d1-cutover-authority-map.json`. Ele agrupa o legado por domínio de authority, não por cópia de schema, e fixa o teto atual de 71 call-sites `env.DB` (75 na auditoria inicial; 4 eliminados no cutover de enrollment/identificação Product). A CI permite apenas redução desse número e exige que toda tabela D1 referenciada esteja classificada exatamente uma vez.
 
 A auditoria de cutover encontrou 10 tabelas D1 legadas. Product grants/action queue/audit já possuem tabelas e RPCs PostgreSQL, **mas o corte da execução segue bloqueado**: o enqueue/resolver ainda não discrimina `client_id`, enquanto a listagem de grants o faz. A identidade do client deve vir de credenciais verificadas, nunca de input arbitrário. Product pairing/link exige redesenho sobre identity/bindings canônicos; o registry de device é parcialmente coberto e ainda precisa separar Product de engineering/runtime. Artifact metadata/multipart e a queue genérica de engenharia continuam dependentes do contrato acompanhado em **#42**. Não criar tabelas PostgreSQL apenas para reproduzir o schema D1 1:1.
 
@@ -41,7 +41,7 @@ O destino correto é:
 
 O runtime PostgreSQL usa a credencial LOGIN dedicada `ordax_edge_runtime`, que herda somente o boundary NOLOGIN `ordax_edge_executor`. O Hyperdrive canônico está provisionado com cache desabilitado, TLS `require` e limite de 10 conexões de origem.
 
-`src/product_postgres_store.ts` usa diretamente o binding `POSTGRES` do Hyperdrive com Postgres.js pinado. O runtime não usa backend secret genérico do Supabase, não chama `/rest/v1/rpc/` e continua restrito às RPCs PostgreSQL públicas concedidas ao boundary `ordax_edge_executor`.
+`src/product_postgres_store.ts` usa diretamente o binding `POSTGRES` do Hyperdrive com Postgres.js pinado. O endpoint Product de setup (`identify`/`enroll`) utiliza somente as RPCs de identidade PostgreSQL, com token hasheado e limite de re-enrollment aplicado atomicamente no banco; não grava autoridade Product em D1 ou Durable Objects. O runtime não usa backend secret genérico do Supabase, não chama `/rest/v1/rpc/` e continua restrito às RPCs PostgreSQL públicas concedidas ao boundary `ordax_edge_executor`.
 
 São proibidos no runtime Worker de produção:
 
@@ -88,10 +88,7 @@ O fluxo legado de metadata/multipart ainda depende de D1 e será removido no cut
 
 ## Durable Objects
 
-Existem duas classes no runtime atual:
-
-- `DeviceSession`;
-- `EnrollmentSession`.
+No destino Cloudflare permanece somente `DeviceSession`, responsável pela coordenação de WebSocket/sessão. O `EnrollmentSession` legado foi retirado da configuração e do source porque persistia identidade Product fora do PostgreSQL; o enrollment canônico já é atômico por RPC. A conta dedicada ainda não possui namespaces Durable Objects provisionados.
 
 O destino mantém Durable Objects somente para coordenação de sessão/realtime. Estado de negócio durável deve estar no PostgreSQL; artifacts ficam no R2.
 
