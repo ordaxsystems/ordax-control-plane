@@ -65,6 +65,8 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertTrue(foundation["security"]["require_two_factor"])
         security = foundation["live_evidence"]["security"]
         self.assertTrue(security["member_two_factor_enabled"])
+        self.assertTrue(security["account_enforce_twofactor"])
+        self.assertEqual(security["account_name"], "ordax-platform")
         self.assertNotIn("cloudflare_2fa_not_enabled", foundation["readiness_blockers"])
         self.assertEqual(foundation["postgres"]["runtime_role"], "ordax_edge_runtime")
         self.assertEqual(foundation["postgres"]["executor_role"], "ordax_edge_executor")
