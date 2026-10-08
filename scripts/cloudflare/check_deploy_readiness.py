@@ -56,6 +56,10 @@ def validate(data: dict, config: dict, source: str, account_id: str | None = Non
         raise DeployGateError("forbidden runtime secrets policy incomplete")
     if (data.get("security") or {}).get("require_two_factor") is not True:
         raise DeployGateError("2FA security requirement missing")
+    account_security = (data.get("live_evidence") or {}).get("security") or {}
+    if (account_security.get("member_two_factor_enabled") is not True
+            or account_security.get("account_enforce_twofactor") is not True):
+        raise DeployGateError("account 2FA enforcement evidence missing")
 
     postgres = data.get("postgres") or {}
     if postgres.get("runtime_transport") != "hyperdrive" or postgres.get("hyperdrive_binding") != "POSTGRES":
