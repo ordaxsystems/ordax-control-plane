@@ -64,6 +64,15 @@ class CloudflareDirectDeployGateTests(unittest.TestCase):
         with self.assertRaisesRegex(gate.DeployGateError, "contradicts"):
             self.validate()
 
+    def test_account_2fa_enforcement_is_a_hard_deploy_requirement(self):
+        self.foundation["live_evidence"]["security"]["account_enforce_twofactor"] = False
+        with self.assertRaisesRegex(gate.DeployGateError, "account 2FA enforcement"):
+            self.validate()
+        self.foundation["live_evidence"]["security"]["account_enforce_twofactor"] = True
+        self.foundation["live_evidence"]["security"]["member_two_factor_enabled"] = False
+        with self.assertRaisesRegex(gate.DeployGateError, "account 2FA enforcement"):
+            self.validate()
+
     def test_canonical_binding_and_account_are_enforced(self):
         with self.assertRaisesRegex(gate.DeployGateError, "account differs"):
             gate.validate(self.foundation, self.wrangler, "", "0" * 32)
