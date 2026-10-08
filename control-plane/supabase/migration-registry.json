@@ -505,6 +505,17 @@
         "path": "control-plane/supabase/migrations/20261007212500_product_owner_auth_eligibility_v1.sql",
         "blob_sha": "8fb1d58510a2cc4d3ee8703890cb8963b29776eb"
       }
+    },
+    {
+      "name": "20261007213000_product_owner_read_eligibility_v1",
+      "applied_version": "20261008034118",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "ordaxsystems/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007213000_product_owner_read_eligibility_v1.sql",
+        "blob_sha": "6cc4a57cb8318b60acdde87b9fe53c7f87c1d9db"
+      }
     }
   ]
 }
