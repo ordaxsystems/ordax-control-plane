@@ -511,6 +511,34 @@ rejected even if a trusted service inadvertently queues a stale command,
 but **the database still cannot establish that the network caller is the
 claimed actor** without the service authorization context.
 
+## Live Auth owner eligibility for Product authority creation
+
+Three existing Product authority-minting RPCs,
+`ordax_enroll_product_device_v1`,
+`ordax_replace_remote_grant_group_v1`, and
+`ordax_enqueue_product_action_v1`, check the verified Auth owner
+before issuing device credentials, remote capability grants or new actions.
+The existing private `ordax_trusted_actor_auth_eligible_v1(uuid)` is
+reused rather than creating a second owner-eligibility implementation.
+It requires a matching Product account and a confirmed, non-anonymous,
+not-deleted and not-currently-suspended `auth.users` record. Its
+`FOR SHARE` locks serialize the mutation with account-status updates.
+
+For an ineligible owner the RPC returns `product_owner_auth_ineligible`;
+the action issuer checks it before looking up or acknowledging an
+idempotency replay. Validation and the original dedicated
+`ordax_edge_executor` EXECUTE boundary are otherwise unchanged. The
+migration preflight pins exact function-definition hashes to fail if
+another chat has changed any of the three functions concurrently.
+
+Crucially, **revocation** via `ordax_revoke_remote_grant_group_v1`
+is intentionally not blocked by this eligibility gate: the system must
+be able to remove existing capability grants for a suspended owner.
+Device telemetry and cleanup RPCs are also not converted into a new
+user-authentication mechanism. A signed OAuth/JWT bearer must still be
+verified and bound to the correct owner by the Worker or trusted
+upstream service; passing an owner UUID is never caller authentication.
+
 ## Memory authority
 
 Durable Memory uses a dedicated NOLOGIN/NOINHERIT `ordax_memory_executor`
