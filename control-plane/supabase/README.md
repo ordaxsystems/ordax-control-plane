@@ -539,6 +539,33 @@ user-authentication mechanism. A signed OAuth/JWT bearer must still be
 verified and bound to the correct owner by the Worker or trusted
 upstream service; passing an owner UUID is never caller authentication.
 
+## Scoped Product reads and live Auth owner eligibility
+
+Two existing Product query RPCs, `ordax_list_product_targets_v1` and
+`ordax_get_product_action_v1`, now reject reads for an owner whose
+canonical Supabase Auth account is suspended, soft-deleted, anonymous
+or unconfirmed. Both reuse the lock-bearing
+`private.ordax_trusted_actor_auth_eligible_v1(p_owner_user_id)`
+helper already used by Product mutations; there is no duplicate helper,
+authorization table or new executor. A denied query returns the
+standard `product_owner_auth_ineligible` JSON error.
+
+The two functions remain on their original OIDs with the same
+`ordax_edge_executor` privilege; SQL volatility is `VOLATILE`, because
+the shared function locks the current Auth and Product account rows.
+For eligible owners the original output shape, owner/client scoping,
+active grant validity, target listing and action-result semantics remain
+unchanged. When a temporary suspension ends, an otherwise available
+result can be read again. A soft-deleted account remains ineligible.
+
+The Worker is still responsible for **cryptographically verifying** the
+bearer and associating its signed owner/client identity with the
+`p_owner_user_id`, `p_client_kind` and `p_client_id` sent to these RPCs.
+The database does not authenticate the owner by accepting its UUID.
+Removing stale or unauthorized device action leases and cancelling
+already-running actions are distinct concerns; this change only
+protects Product **query visibility**, not every device callback.
+
 ## Memory authority
 
 Durable Memory uses a dedicated NOLOGIN/NOINHERIT `ordax_memory_executor`
