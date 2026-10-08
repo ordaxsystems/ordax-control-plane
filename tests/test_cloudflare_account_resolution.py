@@ -361,6 +361,31 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
             heartbeat.index("this.ack(ws, requestId, true"),
         )
 
+    def test_artifact_token_is_not_issued_when_write_loses_a_race(self):
+        source = WORKER_SOURCE.read_text(encoding="utf-8")
+        replay = source.split("async function existingArtifactGrant(", 1)[1].split(
+            "async function artifactJobAuthorized(", 1
+        )[0]
+        self.assertIn("const tokenUpdate = await env.DB.prepare(", replay)
+        self.assertIn("(tokenUpdate.meta.changes ?? 0) !== 1", replay)
+        self.assertIn('error: "artifact_replay_conflict"', replay)
+        self.assertLess(
+            replay.index("tokenUpdate.meta.changes"),
+            replay.index("signed_url:"),
+        )
+
+        multipart = source.split("async function completeMultipartArtifact(", 1)[1].split(
+            "async function abortMultipartArtifact(", 1
+        )[0]
+        self.assertIn("ON CONFLICT(id) DO NOTHING", multipart)
+        self.assertIn("const publishInsert = await env.DB.prepare(", multipart)
+        self.assertIn("(publishInsert.meta.changes ?? 0) !== 1", multipart)
+        self.assertIn('error: "artifact_publish_conflict"', multipart)
+        self.assertLess(
+            multipart.index("publishInsert.meta.changes"),
+            multipart.index("signed_url:"),
+        )
+
     def test_unsafe_legacy_device_deletion_is_retired_before_first_deploy(self):
         source = WORKER_SOURCE.read_text(encoding="utf-8")
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
