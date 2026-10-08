@@ -18,6 +18,8 @@ class AccountDefaultOriginTests(unittest.TestCase):
         self.assertIn("from auth.users u", s)
         self.assertIn("join public.ordax_accounts a on a.user_id=u.id", s)
         self.assertIn("u.deleted_at is null", s)
+        self.assertIn("u.is_anonymous is false", s)
+        self.assertIn("u.confirmed_at is not null", s)
         self.assertIn("for key share of u,a", s)
         self.assertIn("account_creation_not_verified", s)
         self.assertNotIn("p_source_event_id", s)
