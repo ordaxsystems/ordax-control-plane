@@ -296,6 +296,53 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         self.assertIn("product_device_setup_client_contract_not_verified", readme)
         self.assertIn("projeto responsável pelo Device Agent", readme)
 
+    def test_device_websocket_handshake_fails_before_acceptance(self):
+        source = WORKER_SOURCE.read_text(encoding="utf-8")
+        helper = source.split(
+            "function parseRuntimeIdentityHeaders(", 1
+        )[1].split("async function wakeDeviceSession(", 1)[0]
+        self.assertIn('request.headers.get("X-Ordax-Agent-Instance")', helper)
+        self.assertIn('request.headers.get("X-Ordax-Boot-Id")', helper)
+        self.assertIn("UUID_RE.test(agentInstanceId)", helper)
+        self.assertIn("UUID_RE.test(bootId)", helper)
+
+        outer = source.split(
+            'if (request.method === "GET" && url.pathname === "/v3/device/ws")',
+            1,
+        )[1].split(
+            'if (request.method === "POST" && url.pathname === "/v3/device/setup")',
+            1,
+        )[0]
+        self.assertLess(
+            outer.index("parseRuntimeIdentityHeaders(request)"),
+            outer.index("env.DEVICE_SESSIONS.idFromName(deviceId)"),
+        )
+        self.assertIn('error: "runtime_identity_invalid"', outer)
+        self.assertIn("authenticateDevice(env, deviceId, token)", outer)
+
+        session = source.split('if (url.pathname === "/ws")', 1)[1].split(
+            'if (url.pathname === "/wake"', 1
+        )[0]
+        self.assertIn('request.method !== "GET"', session)
+        self.assertLess(
+            session.index("parseRuntimeIdentityHeaders(request)"),
+            session.index("new WebSocketPair()"),
+        )
+        self.assertIn(
+            "WHERE id = ?2 AND revoked_at IS NULL", session,
+        )
+        self.assertIn("presence.meta.changes", session)
+        self.assertIn('error: "device_revoked_or_missing"', session)
+        self.assertLess(
+            session.index("presence.meta.changes"),
+            session.index("new WebSocketPair()"),
+        )
+        self.assertLess(
+            session.index("new WebSocketPair()"),
+            session.index("this.ctx.acceptWebSocket(server)"),
+        )
+        self.assertNotIn("server.close(1008, \"invalid runtime identity\")", session)
+
     def test_unsafe_legacy_retention_is_retired_before_first_deployment(self):
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
