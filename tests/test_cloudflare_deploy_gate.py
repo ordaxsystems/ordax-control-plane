@@ -14,6 +14,7 @@ FOUNDATION = ROOT / "control-plane/cloudflare/production-foundation.json"
 WRANGLER = ROOT / "control-plane/cloudflare/wrangler.toml"
 LEGACY = ROOT / "scripts/cloudflare/deploy-v3.sh"
 ROUTINE = ROOT / "scripts/cloudflare/deploy-production-v3.sh"
+BOOTSTRAP = ROOT / "scripts/cloudflare/bootstrap-worker-v3.sh"
 PUBLIC_SMOKE = ROOT / "scripts/verify_cloudflare_public.py"
 
 spec = importlib.util.spec_from_file_location("ordax_cloudflare_deploy_gate", GUARD)
@@ -89,6 +90,48 @@ class CloudflareDirectDeployGateTests(unittest.TestCase):
                                  env=env, capture_output=True, text=True)
         self.assertEqual(preview.returncode, 0, preview.stderr)
         self.assertIn("BLOCKED", preview.stdout)
+
+    def test_bootstrap_requires_exact_initial_worker_blockers(self):
+        self.foundation["readiness_blockers"] = [
+            "worker_not_provisioned",
+            "cloudflare_ci_worker_editor_token_not_provisioned",
+        ]
+        self.wrangler.pop("d1_databases", None)
+        self.assertFalse(gate.validate(
+            self.foundation, self.wrangler, "export default {}",
+            self.foundation["account_id"], bootstrap=True,
+        ))
+        with self.assertRaisesRegex(gate.DeployGateError, "operator bearer"):
+            gate.validate(self.foundation, self.wrangler, "ORDAX_OPERATOR_TOKEN",
+                          self.foundation["account_id"], bootstrap=True)
+        self.foundation["readiness_blockers"].append("worker_d1_cutover_incomplete")
+        with self.assertRaisesRegex(gate.DeployGateError, "exactly the Worker"):
+            gate.validate(self.foundation, self.wrangler, "export default {}",
+                          self.foundation["account_id"], bootstrap=True)
+
+    def test_bootstrap_script_is_blocked_before_using_admin_credential(self):
+        source = BOOTSTRAP.read_text(encoding="utf-8")
+        self.assertIn("check_deploy_readiness.py", source)
+        self.assertIn("--bootstrap", source)
+        self.assertIn("workers/scripts/$WORKER_NAME", source)
+        self.assertNotIn("wrangler d1", source)
+        self.assertNotIn("d1 migrations apply", source)
+        self.assertLess(source.index("check_deploy_readiness.py"),
+                        source.index("CLOUDFLARE_API_TOKEN:?"))
+        command = ["bash", str(BOOTSTRAP)]
+        result = subprocess.run(command, cwd=ROOT,
+                                env={**os.environ, "CLOUDFLARE_ACCOUNT_ID": self.foundation["account_id"]},
+                                capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("initial Worker bootstrap", result.stderr)
+        self.assertNotIn("CLOUDFLARE_API_TOKEN is required", result.stderr)
+
+    def test_routine_deploy_requires_preexisting_worker(self):
+        source = ROUTINE.read_text(encoding="utf-8")
+        self.assertIn("workers/scripts/$WORKER_NAME", source)
+        self.assertIn("Existing Worker identity could not be verified", source)
+        self.assertLess(source.index("workers/scripts/$WORKER_NAME"),
+                        source.index("npx --yes"))
 
     def test_public_smoke_must_not_fall_back_to_legacy_account(self):
         source = PUBLIC_SMOKE.read_text(encoding="utf-8")
