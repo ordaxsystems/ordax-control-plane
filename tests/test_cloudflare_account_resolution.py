@@ -16,17 +16,27 @@ WORKER_SOURCE = ROOT / "control-plane" / "cloudflare" / "src" / "index.ts"
 CLOUDFLARE_SRC = ROOT / "control-plane" / "cloudflare" / "src"
 CLOUDFLARE_MIGRATIONS = ROOT / "control-plane" / "cloudflare" / "migrations"
 D1_CUTOVER_MAP = ROOT / "control-plane" / "cloudflare" / "d1-cutover-authority-map.json"
+D1_ACCESS_RE = re.compile(
+    r"""(?<![A-Za-z0-9_])(?:this\.)?env(?:\.DB\b|\[\s*['"]DB['"]\s*\])"""
+)
+D1_TABLE_RE = re.compile(
+    r"\b(?:from|join|into|update|table)\s+(ordax_[a-z0-9_]+)",
+    re.IGNORECASE,
+)
+
+def d1_access_count(source: str) -> int:
+    return len(D1_ACCESS_RE.findall(source))
+
+def d1_worker_sources() -> dict[str, str]:
+    return {
+        path.name: path.read_text(encoding="utf-8")
+        for path in CLOUDFLARE_SRC.glob("*.ts")
+    }
+
 
 OLD_ACCOUNT_ID = "ac1ca1b50d09c7a4cb81274d2aa1e78f"
 DEDICATED_ACCOUNT_ID = "42586bf13b61436219d21def299833e4"
 
-LEGACY_D1_SOURCE_ALLOWLIST = {
-    "index.ts",
-    "product_device_grants.ts",
-    "product_intelligence_grants.ts",
-    "product_project_grants.ts",
-    "retention.ts",
-}
 LEGACY_D1_MIGRATION_ALLOWLIST = {
     "0001_initial.sql",
     "0002_device_enrollment.sql",
@@ -144,36 +154,30 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
     def test_legacy_d1_surface_is_frozen_while_cutover_is_incomplete(self):
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
         blockers = set(foundation["readiness_blockers"])
-        d1_sources = set()
-        referenced_tables = set()
-
-        table_pattern = re.compile(
-            r"\b(?:from|join|into|update|table)\s+(ordax_[a-z0-9_]+)",
-            re.IGNORECASE,
-        )
-        for path in CLOUDFLARE_SRC.glob("*.ts"):
-            source = path.read_text(encoding="utf-8")
-            if (
-                "D1Database" in source
-                or "env.DB" in source
-                or "this.env.DB" in source
-            ):
-                d1_sources.add(path.name)
-                referenced_tables.update(
-                    match.lower() for match in table_pattern.findall(source)
-                )
-
-        migrations = {path.name for path in CLOUDFLARE_MIGRATIONS.glob("*.sql")}
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
+        ceilings = cutover["legacy_source_callsite_ceilings"]
+        sources = d1_worker_sources()
+        d1_sources = {
+            name
+            for name, source in sources.items()
+            if "D1Database" in source or d1_access_count(source) > 0
+        }
         mapped_tables = {
             table
             for domain in cutover["domains"]
             for table in domain["legacy_tables"]
         }
+        referenced_tables = {
+            match.lower()
+            for name in d1_sources
+            for match in D1_TABLE_RE.findall(sources[name])
+        }
+        migrations = {path.name for path in CLOUDFLARE_MIGRATIONS.glob("*.sql")}
 
+        self.assertEqual(CLOUDFLARE_SRC, ROOT / cutover["source_root"])
         self.assertTrue(
-            d1_sources.issubset(LEGACY_D1_SOURCE_ALLOWLIST),
-            f"new D1 source files are forbidden: {sorted(d1_sources - LEGACY_D1_SOURCE_ALLOWLIST)}",
+            d1_sources.issubset(set(ceilings)),
+            f"untracked D1 source files are forbidden: {sorted(d1_sources - set(ceilings))}",
         )
         self.assertTrue(
             migrations.issubset(LEGACY_D1_MIGRATION_ALLOWLIST),
@@ -183,7 +187,6 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
             referenced_tables.issubset(mapped_tables),
             f"new D1 tables are forbidden: {sorted(referenced_tables - mapped_tables)}",
         )
-
         if d1_sources or migrations:
             self.assertFalse(foundation["policy"]["allow_d1"])
             self.assertIn("worker_d1_cutover_incomplete", blockers)
@@ -200,17 +203,18 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
 
     def test_d1_cutover_map_classifies_every_legacy_table_once(self):
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
-        source = WORKER_SOURCE.read_text(encoding="utf-8")
-        table_pattern = re.compile(
-            r"\b(?:from|join|into|update|table)\s+(ordax_[a-z0-9_]+)",
-            re.IGNORECASE,
-        )
-        referenced_tables = {match.lower() for match in table_pattern.findall(source)}
-
-        mapped_tables = []
-        for domain in cutover["domains"]:
-            mapped_tables.extend(domain["legacy_tables"])
-
+        sources = d1_worker_sources()
+        referenced_tables = {
+            match.lower()
+            for source in sources.values()
+            if "D1Database" in source or d1_access_count(source) > 0
+            for match in D1_TABLE_RE.findall(source)
+        }
+        mapped_tables = [
+            table
+            for domain in cutover["domains"]
+            for table in domain["legacy_tables"]
+        ]
         self.assertEqual(len(mapped_tables), len(set(mapped_tables)))
         self.assertEqual(set(mapped_tables), referenced_tables)
         self.assertFalse(cutover["policy"]["allow_callsite_growth"])
@@ -255,15 +259,41 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
 
     def test_d1_callsite_count_can_only_shrink(self):
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
-        source = WORKER_SOURCE.read_text(encoding="utf-8")
-        current_calls = source.count("env.DB")
-        self.assertLessEqual(current_calls, cutover["baseline_env_db_calls"])
-        if current_calls:
-            foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
-            self.assertIn(
-                "worker_d1_cutover_incomplete",
-                foundation["readiness_blockers"],
+        ceilings = cutover["legacy_source_callsite_ceilings"]
+        sources = d1_worker_sources()
+        self.assertEqual(cutover["version"], 2)
+        self.assertTrue(ceilings)
+        self.assertEqual(
+            len(ceilings), len(set(ceilings)),
+            "duplicate source names are invalid",
+        )
+        current_total = 0
+        for name, ceiling in ceilings.items():
+            self.assertRegex(name, r"^[a-z][a-z0-9_]*\.ts$")
+            self.assertIs(type(ceiling), int)
+            self.assertGreaterEqual(ceiling, 0)
+            self.assertIn(name, sources, f"tracked source removed without SSOT cleanup: {name}")
+            current = d1_access_count(sources[name])
+            self.assertLessEqual(
+                current, ceiling, f"D1 references grew in {name}: {current} > {ceiling}"
             )
+            current_total += current
+        self.assertLessEqual(current_total, sum(ceilings.values()))
+        if current_total:
+            foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
+            self.assertIn("worker_d1_cutover_incomplete", foundation["readiness_blockers"])
+
+    def test_computed_d1_access_and_new_source_are_detected(self):
+        self.assertEqual(d1_access_count("env.DB; this.env.DB; env['DB']; env[\"DB\"]"), 4)
+        sources = d1_worker_sources()
+        cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
+        tracked = set(cutover["legacy_source_callsite_ceilings"])
+        self.assertNotIn("untracked_legacy.ts", tracked)
+        self.assertEqual(d1_access_count("const row = await env['DB'].prepare('SELECT 1')"), 1)
+        self.assertTrue(
+            {"untracked_legacy.ts": "env['DB']"} .keys() - tracked,
+            "untracked D1 source must be rejected by inventory",
+        )
 
     def test_d1_cutover_domains_are_explicit_about_authority_readiness(self):
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
