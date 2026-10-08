@@ -1,4 +1,4 @@
-import { readBoundedJsonObject } from "./request_json";
+import { readBoundedJsonObject } from "./request_json.ts";
 
 export interface ProductAuthEnv {
   PRODUCT_AUTH_ISSUER?: string;
