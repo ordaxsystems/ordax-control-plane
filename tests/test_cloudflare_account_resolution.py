@@ -323,7 +323,7 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         gate_at = script.index("check_deploy_readiness.py")
         self.assertLess(gate_at, script.index('CLOUDFLARE_API_TOKEN:?'))
         self.assertLess(gate_at, script.index('cloudflare_api()'))
-        self.assertLess(gate_at, script.index('wrangler@'))
+        self.assertLess(gate_at, script.index('npx --yes "wrangler@'))
 
     def test_routine_deploy_has_no_legacy_account_or_workers_dev_url_fallback(self):
         script = ROUTINE_DEPLOY.read_text(encoding="utf-8")
