@@ -1,4 +1,11 @@
 import postgres from "postgres";
+import {
+  canonicalRemoteClient,
+  canonicalRemoteGrantGroup,
+  isCanonicalUuid,
+  type RemoteClientKind,
+  type RemoteGrantGroupInput,
+} from "./product_remote_grant_contract";
 
 type JsonObject = Record<string, unknown>;
 
@@ -135,6 +142,22 @@ const RPC_SPECS = {
     keys: ["p_owner_user_id", "p_request_id"],
     casts: ["uuid", "uuid"],
   },
+  ordax_replace_remote_grant_group_v1: {
+    keys: [
+      "p_owner_user_id", "p_space_id", "p_project_id", "p_device_id",
+      "p_client_kind", "p_client_id", "p_profile_key", "p_capabilities",
+      "p_access_modes", "p_valid_until",
+    ],
+    casts: ["uuid", "uuid", "uuid", "uuid", "text", "text", "text", "text[]", "text[]", "timestamptz"],
+  },
+  ordax_revoke_remote_grant_group_v1: {
+    keys: ["p_owner_user_id", "p_grant_group_id"],
+    casts: ["uuid", "uuid"],
+  },
+  ordax_list_product_targets_v1: {
+    keys: ["p_owner_user_id", "p_client_kind", "p_client_id"],
+    casts: ["uuid", "text", "text"],
+  },
   ordax_record_product_presence_v1: {
     keys: [
       "p_device_id",
@@ -220,10 +243,6 @@ async function callRpc<T>(
   const args = spec.casts.map((cast, index) => `$${index + 1}::${cast}`).join(", ");
   const resultCast = "resultCast" in spec ? `::${spec.resultCast}` : "";
   const query = `select public.${rpc}(${args})${resultCast} as result`;
-  const values = spec.keys.map((key, index) =>
-    encodeRpcValue(payload[key], spec.casts[index])
-  );
-
   const sql = postgres(connectionString, {
     max: 1,
     connect_timeout: 5,
@@ -232,6 +251,15 @@ async function callRpc<T>(
   });
 
   try {
+    const values = spec.keys.map((key, index) => {
+      const value = encodeRpcValue(payload[key], spec.casts[index]);
+      if (spec.casts[index] !== "text[]") return value;
+      if (!Array.isArray(value) || !value.every((item) => typeof item === "string")) {
+        throw new ProductPostgresError("product_grant_invalid", 400);
+      }
+      // Postgres.js 3.4.5 binds arrays as typed parameters, never SQL literals.
+      return sql.array(value, 25); // PostgreSQL TEXT OID
+    });
     const rows = await sql.unsafe(query, values);
     const row = rows[0] as { result?: T } | undefined;
     if (!row || !Object.prototype.hasOwnProperty.call(row, "result")) {
@@ -528,4 +556,45 @@ export async function importLegacyProductDevice(
     p_machine_binding_sha256: input.machineBindingSha256,
     p_last_seen_at: input.lastSeenAt,
   });
+}
+
+/**
+ * Canonical grant-group boundary. Not wired into the legacy D1 handlers:
+ * changing public endpoints requires a coordinated Product client cutover.
+ * PostgreSQL alone enforces access decisions for these RPCs.
+ */
+export async function replaceRemoteGrantGroup(
+  env: ProductPostgresEnv,
+  input: RemoteGrantGroupInput,
+): Promise<JsonObject> {
+  const args = canonicalRemoteGrantGroup(input);
+  if (!args) throw new ProductPostgresError("remote_grant_invalid", 400);
+  return callRpc<JsonObject>(env, "ordax_replace_remote_grant_group_v1", args);
+}
+
+export async function revokeRemoteGrantGroup(
+  env: ProductPostgresEnv,
+  ownerUserId: string,
+  grantGroupId: string,
+): Promise<JsonObject> {
+  if (!isCanonicalUuid(ownerUserId) || !isCanonicalUuid(grantGroupId)) {
+    throw new ProductPostgresError("remote_grant_revoke_invalid", 400);
+  }
+  return callRpc<JsonObject>(env, "ordax_revoke_remote_grant_group_v1", {
+    p_owner_user_id: ownerUserId,
+    p_grant_group_id: grantGroupId,
+  });
+}
+
+export async function listCanonicalProductTargets(
+  env: ProductPostgresEnv,
+  input: {
+    ownerUserId: string;
+    clientKind: RemoteClientKind;
+    clientId: string | null;
+  },
+): Promise<JsonObject> {
+  const args = canonicalRemoteClient(input.ownerUserId, input.clientKind, input.clientId);
+  if (!args) throw new ProductPostgresError("product_target_identity_invalid", 400);
+  return callRpc<JsonObject>(env, "ordax_list_product_targets_v1", args);
 }

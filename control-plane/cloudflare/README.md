@@ -193,6 +193,14 @@ O setup oficial do Windows continua em:
 
 A credencial de dispositivo é gerada localmente e o backend recebe somente material derivado/hash conforme o contrato do runtime. Mudanças nesse fluxo devem preservar machine binding, fencing de execução e replay idempotente.
 
+## Product: boundary de grant groups PostgreSQL (ainda não ativado nas rotas)
+
+O adapter `src/product_postgres_store.ts` oferece as RPCs canônicas `ordax_replace_remote_grant_group_v1`, `ordax_revoke_remote_grant_group_v1` e `ordax_list_product_targets_v1`. As assinaturas são derivadas da migration versionada `20261007185000_product_grant_groups_v2.sql`. Os arrays `text[]` são parâmetros tipados, não strings SQL montadas manualmente.
+
+A verificação estrutural em `src/product_remote_grant_contract.ts` aceita somente UUIDs reais de usuário, Space, Project e Device; grupos de capacidades com access mode individual e `client_kind/client_id` explícitos. Autorizar ownership, membership, binding de projeto e grant continua **exclusivamente** nas RPCs PostgreSQL.
+
+**Não houve cutover de endpoint.** Os handlers Product legados e os consumidores MCP ainda usam os contratos D1; estas funções de adapter não são ligadas a eles até a migração vertical coordenada de autenticação, enrollment, grants, targets, action/claim e status. É proibido fazer tradução implícita de `subject_id` arbitrário para UUID, de `project` slug para `project_id`, ou manter fallback/dual-write. Ver issue #42 e `d1-cutover-authority-map.json`.
+
 ## Princípio de cutover
 
 A ordem correta é:
