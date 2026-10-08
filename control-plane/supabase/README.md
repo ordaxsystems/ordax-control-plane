@@ -442,6 +442,38 @@ JWTs without standard Supabase session IDs intentionally fail closed.
 Checking `not_after` does not independently implement every provider
 inactivity or time-box rule; Auth remains the owner of its session lifecycle.
 
+## Shared authenticated subject session authority (RLS SSOT)
+
+The authenticated Auth eligibility function, previously named
+`private.ordax_authenticated_entitlement_eligible_v1()`, is now renamed
+**in place** to `private.ordax_authenticated_subject_eligible_v1()`:
+the PostgreSQL function's OID, owner, ACL and live-session checks are
+preserved. The old private name is removed, rather than retained as a
+wrapper or duplicated implementation.
+
+All fourteen other subject-bound `public` RLS policies now require this
+same predicate in addition to their original ownership, space, project,
+device, membership, memory or remote-capability checks. The existing
+entitlement policy automatically follows the function rename through its
+OID reference, making **fifteen** sensitive policies dependent on one
+source of Auth session eligibility. `ordax_accounts_update_own`
+also requires it in both `USING` and `WITH CHECK`, while the
+table's direct UPDATE privilege remains revoked for clients.
+
+A missing, expired, deleted, or cross-user Supabase Auth session, an Auth
+suspension, account deletion, unconfirmed account, or anonymous account
+now fails closed for these private reads. Existing row ownership and RLS
+authorization are **not** replaced by session presence. The
+`ordax_profile_packs_select_active` policy is intentionally unchanged:
+it exposes only the already-active profile pack catalog to authenticated
+roles and is not an account/space-private resource.
+
+No Auth sessions are copied, no private schema USAGE or Auth relation
+SELECT is granted, and no new helper, role, or exposed RPC is created.
+The separate trusted executor APIs still need their own caller verification
+and authorization; RLS on client SELECT does not make those operations
+automatically session-aware.
+
 ## Memory authority
 
 Durable Memory uses a dedicated NOLOGIN/NOINHERIT `ordax_memory_executor`

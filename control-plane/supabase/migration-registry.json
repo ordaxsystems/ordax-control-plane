@@ -472,6 +472,17 @@
         "path": "control-plane/supabase/migrations/20261007211000_entitlement_session_revocation_v1.sql",
         "blob_sha": "79aa528bca804d32543cd5faa3497cefd6fb01db"
       }
+    },
+    {
+      "name": "20261007211500_authenticated_subject_rls_ssot_v1",
+      "applied_version": "20261008025544",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "ordaxsystems/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007211500_authenticated_subject_rls_ssot_v1.sql",
+        "blob_sha": "c32ea026b3ebb45d572070267ccb09c81df585c2"
+      }
     }
   ]
 }
