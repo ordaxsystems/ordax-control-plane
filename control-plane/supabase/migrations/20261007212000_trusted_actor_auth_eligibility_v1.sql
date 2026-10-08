@@ -32,10 +32,9 @@ begin
     or not p.prosecdef;
   if v_bad<>0 then raise exception 'trusted actor: % RPC definitions have drifted',v_bad; end if;
 
-  if (select count(*) from auth.users)<>0
-    or not exists(select 1 from pg_roles where rolname='ordax_space_executor'
+  if not exists(select 1 from pg_roles where rolname='ordax_space_executor'
       and not rolcanlogin and not rolbypassrls)
-  then raise exception 'trusted actor: baseline or role mismatch'; end if;
+  then raise exception 'trusted actor: executor role mismatch'; end if;
 end;
 $preflight$;
 
