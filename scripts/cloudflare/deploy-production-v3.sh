@@ -9,6 +9,7 @@ CONFIG="$ROOT/control-plane/cloudflare/wrangler.toml"
 # Enforce the exact same fail-closed gate even when invoked outside GitHub Actions.
 # This runs before touching Cloudflare APIs or consuming deployment credentials.
 python "$ROOT/scripts/cloudflare/check_deploy_readiness.py"
+bash "$ROOT/scripts/cloudflare/assert-current-main.sh" "$ROOT"
 
 WORKER_NAME="$(python - "$ROOT/control-plane/cloudflare/production-foundation.json" <<'PY'
 import json, sys
