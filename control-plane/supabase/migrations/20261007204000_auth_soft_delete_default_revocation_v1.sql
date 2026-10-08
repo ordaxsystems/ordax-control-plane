@@ -212,8 +212,8 @@ begin
   select pg_get_functiondef(
     'public.ordax_issue_account_default_entitlement_v2(uuid,text,integer)'::regprocedure
   ) into v_function;
-  if position('FOR SHARE OF u,a' in v_function)=0
-     or position('FOR KEY SHARE OF u,a' in v_function)<>0
+  if v_function !~* 'for[[:space:]]+share[[:space:]]+of[[:space:]]+u[[:space:]]*,[[:space:]]*a'
+     or v_function ~* 'for[[:space:]]+key[[:space:]]+share'
   then raise exception 'Auth deletion revocation: unsafe issuer lock'; end if;
 
   if not exists (
@@ -238,7 +238,7 @@ begin
       'EXECUTE')
      or has_schema_privilege('ordax_entitlement_default_executor','private','USAGE')
      or has_function_privilege(
-      'public',
+      'authenticated',
       'private.ordax_revoke_defaults_on_auth_soft_delete_v1()',
       'EXECUTE')
   then raise exception 'Auth deletion revocation: privilege regression'; end if;
