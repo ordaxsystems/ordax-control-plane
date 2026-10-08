@@ -4,6 +4,12 @@ import tomllib
 import unittest
 from pathlib import Path
 
+from scripts.cloudflare.check_deploy_readiness import (
+    D1_TABLE_RE,
+    d1_access_count,
+    d1_source_names,
+)
+
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "cloudflare-v3-deploy.yml"
 BOOTSTRAP = ROOT / "scripts" / "cloudflare" / "deploy-v3.sh"
@@ -16,29 +22,11 @@ WORKER_SOURCE = ROOT / "control-plane" / "cloudflare" / "src" / "index.ts"
 CLOUDFLARE_SRC = ROOT / "control-plane" / "cloudflare" / "src"
 CLOUDFLARE_MIGRATIONS = ROOT / "control-plane" / "cloudflare" / "migrations"
 D1_CUTOVER_MAP = ROOT / "control-plane" / "cloudflare" / "d1-cutover-authority-map.json"
-D1_ACCESS_RE = re.compile(
-    r"""(?<![A-Za-z0-9_])(?:this\.)?env(?:\.DB\b|\[\s*['"]DB['"]\s*\])"""
-)
-D1_TABLE_RE = re.compile(
-    r"\b(?:from|join|into|update|table)\s+(ordax_[a-z0-9_]+)",
-    re.IGNORECASE,
-)
-
-def d1_access_count(source: str) -> int:
-    return len(D1_ACCESS_RE.findall(source))
-
 def d1_worker_sources() -> dict[str, str]:
     return {
         path.name: path.read_text(encoding="utf-8")
         for path in CLOUDFLARE_SRC.glob("*.ts")
     }
-
-def d1_source_names(sources: dict[str, str]) -> set[str]:
-    return {
-        name for name, source in sources.items()
-        if "D1Database" in source or d1_access_count(source) > 0
-    }
-
 
 OLD_ACCOUNT_ID = "ac1ca1b50d09c7a4cb81274d2aa1e78f"
 DEDICATED_ACCOUNT_ID = "42586bf13b61436219d21def299833e4"

@@ -31,6 +31,28 @@ class DeployGateError(ValueError):
     pass
 
 
+D1_ACCESS_RE = re.compile(
+    r"""(?<![A-Za-z0-9_])(?:this\s*\??\.\s*)?env\s*(?:\??\.\s*DB\b|(?:\?\.\s*)?\[\s*['"`]DB['"`]\s*\])"""
+)
+D1_TABLE_RE = re.compile(
+    r"\b(?:from|join|into|update|table)\s+(ordax_[a-z0-9_]+)",
+    re.IGNORECASE,
+)
+
+
+def d1_access_count(source: str) -> int:
+    """Count direct, computed and optional-chained legacy D1 environment access."""
+    return len(D1_ACCESS_RE.findall(source))
+
+
+def d1_source_names(sources: dict[str, str]) -> set[str]:
+    """Shared Worker inventory rule for CI tests and the deployment boundary."""
+    return {
+        name for name, source in sources.items()
+        if "D1Database" in source or d1_access_count(source) > 0
+    }
+
+
 def validate(data: dict, config: dict, source: str, account_id: str | None = None, *, bootstrap: bool = False) -> bool:
     canonical_account = data.get("account_id")
     if not isinstance(canonical_account, str) or not re.fullmatch(r"[0-9a-f]{32}", canonical_account):
@@ -107,15 +129,19 @@ def validate(data: dict, config: dict, source: str, account_id: str | None = Non
             "initial Worker bootstrap requires exactly the Worker and CI token blockers"
         )
 
+    legacy_binding = bool(config.get("d1_databases"))
+    legacy_source = d1_access_count(source) > 0 or "D1Database" in source
     if ready or bootstrap:
-        if config.get("d1_databases"):
+        if legacy_binding:
             raise DeployGateError("D1 binding remains in production Wrangler")
-        if "env.DB" in source or "D1Database" in source:
+        if legacy_source:
             raise DeployGateError("legacy D1 access remains in Worker source")
         if "ORDAX_OPERATOR_TOKEN" in source or "operatorAuthorized(" in source:
             raise DeployGateError("legacy global operator bearer remains in Worker source")
         if "SUPABASE_SERVER_KEY" in source or "SUPABASE_SERVICE_ROLE_KEY" in source:
             raise DeployGateError("forbidden Supabase server secret remains in Worker source")
+    if (legacy_binding or legacy_source) and "worker_d1_cutover_incomplete" not in blockers:
+        raise DeployGateError("D1 cutover blocker missing while legacy authority remains")
     return ready
 
 
