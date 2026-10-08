@@ -340,6 +340,17 @@
         "path": "control-plane/supabase/migrations/20261007200000_edge_runtime_login_v1.sql",
         "blob_sha": "91b94f0076f61fe3c84a90f420f0ada2dca9844c"
       }
+    },
+    {
+      "name": "20261007201500_profile_pack_assignment_authority_v1",
+      "applied_version": "20261008005633",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "ordaxsystems/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007201500_profile_pack_assignment_authority_v1.sql",
+        "blob_sha": "c4f81c0d93f4a7059f4ee3e14e89eeed5c40de3a"
+      }
     }
   ]
 }
