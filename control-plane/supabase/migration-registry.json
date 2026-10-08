@@ -483,6 +483,17 @@
         "path": "control-plane/supabase/migrations/20261007211500_authenticated_subject_rls_ssot_v1.sql",
         "blob_sha": "c32ea026b3ebb45d572070267ccb09c81df585c2"
       }
+    },
+    {
+      "name": "20261007212000_trusted_actor_auth_eligibility_v1",
+      "applied_version": "20261008031628",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "ordaxsystems/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007212000_trusted_actor_auth_eligibility_v1.sql",
+        "blob_sha": "6481ad7b12ea28d0fc315fcc601c9870cc0356c2"
+      }
     }
   ]
 }
