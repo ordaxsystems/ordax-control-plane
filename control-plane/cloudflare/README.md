@@ -35,6 +35,31 @@ A rotina agendada de retenção (`src/retention.ts`) ainda usa D1 para seleciona
 
 A auditoria de cutover encontrou 10 tabelas D1 legadas. Product grants/action queue/audit já possuem tabelas e RPCs PostgreSQL; a migration `20261007203000_product_client_grant_isolation_v1` está aplicada e exige correspondência exata de `client_id` no resolver/execução. **O corte de endpoint continua bloqueado** até obter identidade de client por credenciais verificadas e migrar Worker/MCP sem fallback; nunca autorizar pelo `client_id` arbitrário do body. Product pairing/link exige redesenho sobre identity/bindings canônicos; o registry de device é parcialmente coberto e ainda precisa separar Product de engineering/runtime. Artifact metadata/multipart e a queue genérica de engenharia continuam dependentes do contrato acompanhado em **#42**. Não criar tabelas PostgreSQL apenas para reproduzir o schema D1 1:1.
 
+## Product MCP — identidade de client OAuth autenticada (boundary não ativado)
+
+O Supabase OAuth 2.1 emite access tokens com o claim superior `client_id`.
+O módulo `src/product_auth.ts` agora disponibiliza
+`authenticateProductMcpClientRequest()`: valida assinatura assimétrica por
+JWKS, issuer, audience e expiração pelo verificador Product existente, e
+**somente depois** lê `client_id` e `role=authenticated`. O `sub` deve ser
+UUID canônico. A espécie `product-mcp` é determinada pelo boundary do
+servidor, não por um parâmetro do consumidor.
+
+A função recusa fail-closed JWT sem `client_id` OAuth, cliente malformado,
+role não autenticada e subject legado textual. Headers como
+`X-Ordax-Client-Id`, query strings, body e `user_metadata` não concedem
+identidade remota. Sessões de usuário normais continuam com o contrato atual;
+um JWT comum não vira um cliente OAuth por inferência.
+
+**Ainda não há cutover de rota.** `/mcp` e as rotas Product públicas
+mantêm os consumidores legados até a migração coordenada da identidade,
+contracts UUID de Space/Project, grant groups, action/status e E2E. É
+proibido misturar a leitura de grants D1 com execução PostgreSQL ou criar
+fallback. O mapa `d1-cutover-authority-map.json` continua `partial`.
+Testes unitários assinam tokens RSA e verificam isolamento entre
+`client_id` de dois clientes do mesmo tipo, spoofing de body/header e
+adulteração de assinatura.
+
 ## Product PostgreSQL
 
 O destino correto é:
