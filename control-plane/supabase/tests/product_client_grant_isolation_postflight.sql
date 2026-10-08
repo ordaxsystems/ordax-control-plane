@@ -41,13 +41,13 @@ begin
     raise exception 'product_client_contract_acl_mismatch';
   end if;
 
-  if pg_catalog.position(
-       'and g.client_id = p_client_id' in
-       pg_catalog.pg_get_functiondef(v_new_resolver::oid)
+  if pg_catalog.strpos(
+       pg_catalog.pg_get_functiondef(v_new_resolver::oid),
+       'and g.client_id = p_client_id'
      ) = 0
-     or pg_catalog.position(
-       'v_existing.client_id = p_client_id' in
-       pg_catalog.pg_get_functiondef(v_new_rpc::oid)
+     or pg_catalog.strpos(
+       pg_catalog.pg_get_functiondef(v_new_rpc::oid),
+       'v_existing.client_id = p_client_id'
      ) = 0 then
     raise exception 'product_client_contract_missing_client_match';
   end if;
