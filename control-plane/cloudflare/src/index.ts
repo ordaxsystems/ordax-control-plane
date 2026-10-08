@@ -314,6 +314,16 @@ async function authenticateDevice(
   return { ok: true };
 }
 
+function parseRuntimeIdentityHeaders(request: Request): {
+  agentInstanceId: string;
+  bootId: string;
+} | null {
+  const agentInstanceId = request.headers.get("X-Ordax-Agent-Instance") ?? "";
+  const bootId = request.headers.get("X-Ordax-Boot-Id") ?? "";
+  if (!UUID_RE.test(agentInstanceId) || !UUID_RE.test(bootId)) return null;
+  return { agentInstanceId, bootId };
+}
+
 async function wakeDeviceSession(
   env: Env,
   deviceId: string,
@@ -2259,6 +2269,9 @@ export default {
       if ((request.headers.get("Upgrade") ?? "").toLowerCase() !== "websocket") {
         return json({ ok: false, error: "websocket_required" }, 426);
       }
+      // Reject malformed runtime IDs before activating the Durable Object.
+      const runtimeIdentity = parseRuntimeIdentityHeaders(request);
+      if (!runtimeIdentity) return json({ ok: false, error: "runtime_identity_invalid" }, 400);
       const deviceId = url.searchParams.get("device_id") ?? "";
       const token = request.headers.get("X-Ordax-Device-Token") ?? "";
       const auth = await authenticateDevice(env, deviceId, token);
@@ -2567,23 +2580,31 @@ export class DeviceSession extends DurableObject<Env> {
     if (!UUID_RE.test(deviceId)) return json({ ok: false, error: "device_id_invalid" }, 400);
 
     if (url.pathname === "/ws") {
+      if (request.method !== "GET") {
+        return json({ ok: false, error: "method_not_allowed" }, 405);
+      }
       if ((request.headers.get("Upgrade") ?? "").toLowerCase() !== "websocket") {
         return json({ ok: false, error: "websocket_required" }, 426);
       }
+      // Do not accept or allocate a WebSocket for invalid execution identities.
+      const runtimeIdentity = parseRuntimeIdentityHeaders(request);
+      if (!runtimeIdentity) return json({ ok: false, error: "runtime_identity_invalid" }, 400);
+      const { agentInstanceId, bootId } = runtimeIdentity;
+
+      // A device may be revoked after the outer Worker authenticates it.
+      // Recheck the canonical legacy registry at the DO handshake boundary.
+      const presence = await this.env.DB.prepare(
+        "UPDATE ordax_devices SET last_seen_at = ?1 WHERE id = ?2 AND revoked_at IS NULL",
+      ).bind(nowIso(), deviceId).run();
+      if ((presence.meta.changes ?? 0) !== 1) {
+        return json({ ok: false, error: "device_revoked_or_missing" }, 401);
+      }
+
       const pair = new WebSocketPair();
       const client = pair[0];
       const server = pair[1];
       this.ctx.acceptWebSocket(server);
-      const agentInstanceId = request.headers.get("X-Ordax-Agent-Instance") ?? "";
-      const bootId = request.headers.get("X-Ordax-Boot-Id") ?? "";
-      if (!UUID_RE.test(agentInstanceId) || !UUID_RE.test(bootId)) {
-        server.close(1008, "invalid runtime identity");
-        return new Response(null, { status: 101, webSocket: client });
-      }
       server.serializeAttachment({ deviceId, agentInstanceId, bootId });
-      await this.env.DB.prepare(
-        "UPDATE ordax_devices SET last_seen_at = ?1 WHERE id = ?2",
-      ).bind(nowIso(), deviceId).run();
       server.send(JSON.stringify({
         type: "hello",
         device_id: deviceId,
