@@ -30,6 +30,7 @@ import { scopeProductResult } from "./product_results";
 import { oauthConsentResponse } from "./oauth_consent";
 import { openAiAppsChallenge, publicProductPage } from "./public_pages";
 import { runProductRetention } from "./retention";
+import { readBoundedJsonObject } from "./request_json";
 import { productPostgresConfigured, type ProductPostgresEnv } from "./product_postgres_store";
 
 interface Env extends ProductAuthEnv, ProductPostgresEnv {
@@ -329,14 +330,7 @@ async function wakeDeviceSession(
 }
 
 async function parseSmallJson(request: Request, maxBytes = 128 * 1024): Promise<JsonObject | null> {
-  const raw = await request.text();
-  if (raw.length === 0 || raw.length > maxBytes) return null;
-  try {
-    const value = JSON.parse(raw);
-    return isRecord(value) ? value : null;
-  } catch {
-    return null;
-  }
+  return readBoundedJsonObject(request, maxBytes);
 }
 
 async function deviceSetup(request: Request, env: Env): Promise<Response> {
