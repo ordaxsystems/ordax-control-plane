@@ -389,11 +389,17 @@ async function deviceSetup(request: Request, env: Env): Promise<Response> {
   const deviceName = typeof body.device_name === "string"
     ? body.device_name.trim()
     : "";
+  const deviceKind = body.device_kind;
+  const channel = body.channel;
   if (
     !HEX64_RE.test(tokenSha256)
     || deviceName.length < 1
     || deviceName.length > 120
     || /[\x00-\x1f\x7f]/.test(deviceName)
+    || (deviceKind !== "desktop" && deviceKind !== "laptop"
+      && deviceKind !== "mobile" && deviceKind !== "server"
+      && deviceKind !== "other")
+    || (channel !== "stable" && channel !== "development")
   ) {
     return json({ ok: false, error: "request_invalid" }, 400);
   }
@@ -412,8 +418,8 @@ async function deviceSetup(request: Request, env: Env): Promise<Response> {
     const enrolled = await enrollProductDevice(env, {
       ownerUserId: identity.subjectId,
       deviceName,
-      deviceKind: "desktop",
-      channel: "stable",
+      deviceKind,
+      channel,
       tokenSha256,
       machineBindingSha256: binding,
     });
