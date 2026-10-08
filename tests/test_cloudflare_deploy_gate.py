@@ -55,6 +55,36 @@ class CloudflareDirectDeployGateTests(unittest.TestCase):
             self.validate("const SUPABASE_SERVER_KEY = 'forbidden';")
         self.assertTrue(self.validate("export default {}"))
 
+    def test_direct_and_computed_d1_accesses_share_one_scanner(self):
+        forms = (
+            "env.DB", "this.env.DB", "env['DB']", 'env["DB"]',
+            "env[`DB`]", "env?.DB", "env?.['DB']", "this?.env?.DB",
+        )
+        self.assertEqual(gate.d1_access_count("; ".join(forms)), len(forms))
+        self.assertEqual(
+            gate.d1_source_names({"legacy.ts": "env['DB']", "clean.ts": "export {}"}),
+            {"legacy.ts"},
+        )
+        self.foundation["deployment_ready"] = True
+        self.foundation["readiness_blockers"] = []
+        self.wrangler.pop("d1_databases", None)
+        for expression in forms:
+            with self.subTest(expression=expression):
+                with self.assertRaisesRegex(gate.DeployGateError, "D1 access"):
+                    self.validate("const db = " + expression)
+
+    def test_partial_d1_cutover_cannot_omit_its_readiness_blocker(self):
+        self.foundation["readiness_blockers"] = [
+            blocker for blocker in self.foundation["readiness_blockers"]
+            if blocker != "worker_d1_cutover_incomplete"
+        ]
+        with self.assertRaisesRegex(gate.DeployGateError, "D1 cutover blocker"):
+            self.validate()
+        self.wrangler.pop("d1_databases", None)
+        with self.assertRaisesRegex(gate.DeployGateError, "D1 cutover blocker"):
+            self.validate("const db = env['DB']")
+        self.assertFalse(self.validate("export default {}"))
+
     def test_forged_readiness_or_missing_blockers_fails_closed(self):
         self.foundation["deployment_ready"] = True
         with self.assertRaisesRegex(gate.DeployGateError, "contradicts"):
