@@ -137,7 +137,7 @@ O workflow `Deploy ORDAX Control Plane`:
 6. chama `scripts/cloudflare/deploy-production-v3.sh`;
 7. executa smoke público depois do deploy.
 
-Para impedir rollback acidental quando vários chats/CI jobs concorrem, o workflow só aceita dispatch manual em `refs/heads/main` ou uma CI bem-sucedida cuja execução tenha origem neste repositório e na branch `main`. O SHA testado continua explícito. Além disso, **bootstrap e deploy rotineiro** verificam que o checkout ainda coincide com `refs/heads/main` do Git remoto imediatamente após o gate de readiness e **antes de ler o token Cloudflare**. Se o HEAD local estiver adiantado, atrasado ou não for possível conferir o remoto, a publicação falha sem fallback. A validação não se baseia apenas no nome da branch ou no SHA de um workflow anterior.
+Para impedir rollback acidental quando vários chats/CI jobs concorrem, o workflow só aceita dispatch manual em `refs/heads/main` ou uma CI bem-sucedida cuja execução tenha origem neste repositório e na branch `main`. O SHA testado continua explícito. Além disso, **bootstrap e deploy rotineiro** verificam que o checkout ainda coincide com `refs/heads/main` do Git remoto imediatamente após o gate de readiness e **antes de ler o token Cloudflare**. Se o HEAD local estiver adiantado, atrasado ou não for possível conferir o remoto, a publicação falha sem fallback. Uma **segunda checagem** ocorre imediatamente antes do comando Wrangler, após consultas à Cloudflare ou instalação de dependências, para reduzir a janela de corrida com commits integrados durante essas etapas; a verificação permanece fail-closed. A validação não se baseia apenas no nome da branch ou no SHA de um workflow anterior.
 
 O deploy rotineiro **não provisiona infraestrutura**.
 
