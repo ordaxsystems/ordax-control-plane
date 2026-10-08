@@ -59,6 +59,8 @@ CONTROL_PLANE_URL="https://$WORKER_NAME.$WORKERS_SUBDOMAIN.workers.dev"
 
 # Routine production deploys must not provision or mutate bound infrastructure.
 # All required bindings must already exist and match the canonical production foundation.
+# Narrow the race with concurrent merges after dependency/API checks.
+bash "$ROOT/scripts/cloudflare/assert-current-main.sh" "$ROOT"
 npx --yes "wrangler@${WRANGLER_VERSION}" deploy --config "$CONFIG"
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then

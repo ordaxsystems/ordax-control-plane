@@ -74,6 +74,15 @@ class CloudflareMainSourceFreshnessTests(unittest.TestCase):
                 content.index("assert-current-main.sh"),
                 content.index("CLOUDFLARE_API_TOKEN:?"),
             )
+            self.assertEqual(content.count("assert-current-main.sh"), 2)
+            self.assertLess(
+                content.rindex("assert-current-main.sh"),
+                content.index('npx --yes "wrangler@'),
+            )
+            self.assertLess(
+                content.index("CLOUDFLARE_API_TOKEN:?"),
+                content.rindex("assert-current-main.sh"),
+            )
         self.assertNotIn("CLOUDFLARE_API_TOKEN", FRESHNESS.read_text(encoding="utf-8"))
 
     def test_deploy_workflow_rejects_foreign_ci_and_non_main_manual_dispatch(self) -> None:
