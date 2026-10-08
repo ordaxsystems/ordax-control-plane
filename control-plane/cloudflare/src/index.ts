@@ -2669,9 +2669,14 @@ export class DeviceSession extends DurableObject<Env> {
     const deviceId = attachment.deviceId;
 
     if (type === "heartbeat") {
-      await this.env.DB.prepare(
+      const presence = await this.env.DB.prepare(
         "UPDATE ordax_devices SET last_seen_at = ?1 WHERE id = ?2 AND revoked_at IS NULL",
       ).bind(nowIso(), deviceId).run();
+      if ((presence.meta.changes ?? 0) !== 1) {
+        this.ack(ws, requestId, false, { error: "device_revoked_or_missing" });
+        ws.close(1008, "device revoked or missing");
+        return;
+      }
       this.ack(ws, requestId, true, { server_time: nowIso() });
       return;
     }

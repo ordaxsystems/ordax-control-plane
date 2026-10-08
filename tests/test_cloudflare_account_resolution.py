@@ -343,6 +343,25 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         )
         self.assertNotIn("server.close(1008, \"invalid runtime identity\")", session)
 
+    def test_heartbeat_rejects_revoked_or_deleted_device(self):
+        source = WORKER_SOURCE.read_text(encoding="utf-8")
+        session = source.split("async webSocketMessage(", 1)[1]
+        heartbeat = session.split('if (type === "heartbeat")', 1)[1].split(
+            'const jobId = ', 1
+        )[0]
+        self.assertIn("revoked_at IS NULL", heartbeat)
+        self.assertIn("presence.meta.changes", heartbeat)
+        self.assertIn('error: "device_revoked_or_missing"', heartbeat)
+        self.assertIn("ws.close(1008", heartbeat)
+        self.assertLess(
+            heartbeat.index("presence.meta.changes"),
+            heartbeat.index("this.ack(ws, requestId, true"),
+        )
+        self.assertLess(
+            heartbeat.index("ws.close(1008"),
+            heartbeat.index("this.ack(ws, requestId, true"),
+        )
+
     def test_unsafe_legacy_retention_is_retired_before_first_deployment(self):
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
