@@ -388,12 +388,13 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
         self.assertNotIn("retention.ts", cutover["legacy_source_callsite_ceilings"])
         self.assertFalse((CLOUDFLARE_SRC / "retention.ts").exists())
-        self.assertEqual(
-            sum(cutover["legacy_source_callsite_ceilings"].values()), 89
-        )
+        # Retiring retention must be a permanent reduction, not a fixed total
+        # that blocks future independent D1 cutovers.
+        remaining = sum(cutover["legacy_source_callsite_ceilings"].values())
+        self.assertLessEqual(remaining, 89)
         self.assertEqual(
             sum(d1_access_count(source) for source in d1_worker_sources().values()),
-            89,
+            remaining,
         )
         for source in d1_worker_sources().values():
             self.assertNotIn("runProductRetention", source)
