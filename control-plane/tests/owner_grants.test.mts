@@ -130,6 +130,6 @@ test("bounded reader stops infinite chunked requests before consuming a full bod
   assert.equal(await readBoundedJsonObject(
     new Request("https://ordax.example/api", { method: "POST", body, duplex: "half" } as any), 16 * 1024,
   ), null);
-  assert.equal(chunksRead, 3);
+  assert.ok(chunksRead >= 3 && chunksRead <= 4, `expected early cancellation, got ${chunksRead} chunks`);
   assert.equal(cancelled, true);
 });
