@@ -44,6 +44,22 @@ class ProductAuthContractTests(unittest.TestCase):
         self.assertIn("audienceMatches(payload.aud, audience)", self.auth)
         self.assertIn("exp <= now - CLOCK_SKEW_SECONDS", self.auth)
 
+    def test_product_mcp_identity_requires_signed_oauth_client_claim(self) -> None:
+        # MCP client identity is derived only after the asymmetric JWT
+        # signature has been verified by the canonical issuer.
+        self.assertIn("authenticateProductMcpClientRequest(", self.auth)
+        self.assertIn("const identity = await authenticateProductRequest(request, env)", self.auth)
+        self.assertIn("role !== \"authenticated\"", self.auth)
+        self.assertIn("isCanonicalUuid(identity.subjectId)", self.auth)
+        self.assertIn(
+            'canonicalRemoteClient(identity.subjectId, "product-mcp", identity.clientId)',
+            self.auth,
+        )
+        self.assertIn("clientId: client.p_client_id", self.auth)
+        self.assertIn("product_mcp_oauth_client_required", self.auth)
+        self.assertIn('typeof payload.client_id === "string"', self.auth)
+        self.assertNotIn('request.headers.get("x-ordax-client-id")', self.auth)
+
     def test_product_session_does_not_reuse_operator_or_device_auth(self) -> None:
         session_start = self.worker.index("async function productSession")
         session_end = self.worker.index("async function createProductAction", session_start)
