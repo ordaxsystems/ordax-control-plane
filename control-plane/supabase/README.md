@@ -5,7 +5,7 @@ authority.
 
 The canonical persistent database is:
 
-- Supabase project: `ordax-platform-prod`
+- Supabase project: `ordax-platform` (ref `jhfphsjptrpmtnzkpwud`; production environment unchanged)
 - project ref: `jhfphsjptrpmtnzkpwud`
 - region: `sa-east-1` (São Paulo)
 - PostgreSQL: durable source of truth
