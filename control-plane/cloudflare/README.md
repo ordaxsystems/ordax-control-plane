@@ -41,7 +41,7 @@ O destino correto é:
 
 O runtime PostgreSQL usa a credencial LOGIN dedicada `ordax_edge_runtime`, que herda somente o boundary NOLOGIN `ordax_edge_executor`. O Hyperdrive canônico está provisionado com cache desabilitado, TLS `require` e limite de 10 conexões de origem.
 
-`src/product_postgres_store.ts` usa diretamente o binding `POSTGRES` do Hyperdrive com Postgres.js pinado. O endpoint Product de setup (`identify`/`enroll`) utiliza somente as RPCs de identidade PostgreSQL, com token hasheado e limite de re-enrollment aplicado atomicamente no banco; não grava autoridade Product em D1 ou Durable Objects. O runtime não usa backend secret genérico do Supabase, não chama `/rest/v1/rpc/` e continua restrito às RPCs PostgreSQL públicas concedidas ao boundary `ordax_edge_executor`.
+`src/product_postgres_store.ts` usa diretamente o binding `POSTGRES` do Hyperdrive com Postgres.js pinado. O endpoint Product de setup (`identify`/`enroll`) utiliza somente as RPCs de identidade PostgreSQL, com token hasheado e limite de re-enrollment aplicado atomicamente no banco; não grava autoridade Product em D1 ou Durable Objects. Na operação `enroll`, o contrato agora exige explicitamente `device_kind` (`desktop`, `laptop`, `mobile`, `server` ou `other`) e `channel` (`stable` ou `development`); não há valor fictício ou default silencioso. Os consumidores devem enviar esses campos antes de liberar o deploy do Worker novo. O runtime não usa backend secret genérico do Supabase, não chama `/rest/v1/rpc/` e continua restrito às RPCs PostgreSQL públicas concedidas ao boundary `ordax_edge_executor`.
 
 São proibidos no runtime Worker de produção:
 
