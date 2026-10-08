@@ -186,6 +186,16 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
             self.assertFalse(foundation["policy"]["allow_d1"])
             self.assertIn("worker_d1_cutover_incomplete", blockers)
 
+    def test_main_worker_json_ingress_uses_shared_byte_bounded_reader(self):
+        source = WORKER_SOURCE.read_text(encoding="utf-8")
+        bounded = (CLOUDFLARE_SRC / "request_json.ts").read_text(encoding="utf-8")
+        self.assertIn('import { readBoundedJsonObject } from "./request_json";', source)
+        self.assertIn("return readBoundedJsonObject(request, maxBytes);", source)
+        self.assertNotIn("await request.text()", source)
+        self.assertIn("bytes += value.byteLength", bounded)
+        self.assertIn("if (bytes > maxBytes) return null", bounded)
+        self.assertIn("await reader.cancel()", bounded)
+
     def test_d1_cutover_map_classifies_every_legacy_table_once(self):
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
         source = WORKER_SOURCE.read_text(encoding="utf-8")
