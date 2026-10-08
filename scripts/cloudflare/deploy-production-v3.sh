@@ -7,6 +7,10 @@ WORKER_NAME="ordax-control-plane-v3"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CONFIG="$ROOT/control-plane/cloudflare/wrangler.toml"
 
+# Enforce the exact same fail-closed gate even when invoked outside GitHub Actions.
+# This runs before touching Cloudflare APIs or consuming deployment credentials.
+python "$ROOT/scripts/cloudflare/check_deploy_readiness.py"
+
 : "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required}"
 export CLOUDFLARE_ACCOUNT_ID="$ACCOUNT_ID"
 
