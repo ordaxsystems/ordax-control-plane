@@ -7,6 +7,7 @@ import sys
 import tomllib
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parents[1]
 GUARD = ROOT / "scripts/cloudflare/check_deploy_readiness.py"
@@ -72,6 +73,40 @@ class CloudflareDirectDeployGateTests(unittest.TestCase):
             with self.subTest(expression=expression):
                 with self.assertRaisesRegex(gate.DeployGateError, "D1 access"):
                     self.validate("const db = " + expression)
+
+    def test_nested_typescript_and_javascript_are_audited_before_deploy(self):
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary) / "src"
+            nested = root / "features" / "devices"
+            nested.mkdir(parents=True)
+            (root / "index.ts").write_text("export default {}", encoding="utf-8")
+            (nested / "runtime.mts").write_text(
+                "const legacy = env?.['DB']", encoding="utf-8"
+            )
+            (nested / "feature.mjs").write_text(
+                "export const active = true", encoding="utf-8"
+            )
+            (nested / "documentation.txt").write_text(
+                "env.DB", encoding="utf-8"
+            )
+            sources = gate.worker_source_texts(root)
+            self.assertEqual(
+                set(sources),
+                {"index.ts", "features/devices/runtime.mts", "features/devices/feature.mjs"},
+            )
+            self.assertEqual(
+                gate.d1_source_names(sources),
+                {"features/devices/runtime.mts"},
+            )
+            self.assertIn(
+                "source_files = worker_source_texts(WORKER_SOURCES)",
+                GUARD.read_text(encoding="utf-8"),
+            )
+            self.foundation["deployment_ready"] = True
+            self.foundation["readiness_blockers"] = []
+            self.wrangler.pop("d1_databases", None)
+            with self.assertRaisesRegex(gate.DeployGateError, "D1 access"):
+                self.validate("\n".join(sources.values()))
 
     def test_partial_d1_cutover_cannot_omit_its_readiness_blocker(self):
         self.foundation["readiness_blockers"] = [

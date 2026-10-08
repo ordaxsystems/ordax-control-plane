@@ -8,6 +8,7 @@ from scripts.cloudflare.check_deploy_readiness import (
     D1_TABLE_RE,
     d1_access_count,
     d1_source_names,
+    worker_source_texts,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,10 +24,7 @@ CLOUDFLARE_SRC = ROOT / "control-plane" / "cloudflare" / "src"
 CLOUDFLARE_MIGRATIONS = ROOT / "control-plane" / "cloudflare" / "migrations"
 D1_CUTOVER_MAP = ROOT / "control-plane" / "cloudflare" / "d1-cutover-authority-map.json"
 def d1_worker_sources() -> dict[str, str]:
-    return {
-        path.name: path.read_text(encoding="utf-8")
-        for path in CLOUDFLARE_SRC.glob("*.ts")
-    }
+    return worker_source_texts(CLOUDFLARE_SRC)
 
 OLD_ACCOUNT_ID = "ac1ca1b50d09c7a4cb81274d2aa1e78f"
 DEDICATED_ACCOUNT_ID = "42586bf13b61436219d21def299833e4"
