@@ -117,15 +117,16 @@ O deploy rotineiro **não provisiona infraestrutura**.
 
 Como o Worker ainda não existe, o bootstrap e o CI permanente são autoridades distintas:
 
-- criação inicial do Worker: autoridade **Workers Product Admin temporária**, removida após o bootstrap;
+- criação inicial do Worker: autoridade **Workers Product Admin temporária**, somente depois dos cutovers D1 e bearer operacional, removida após o bootstrap;
 - deploys posteriores: **Editor somente no Worker existente**;
 - o token rotineiro não recebe Zone/Routes, D1, R2 ou Hyperdrive direct access apenas para publicar bindings.
 
 ### Scripts
 
 - `scripts/cloudflare/check_deploy_readiness.py`: guard SSOT do deploy. O workflow pode executar `--allow-blocked` apenas para validar o estado e registrar o output, mas **o script de deploy direto exige readiness verdadeira** antes de consumir credenciais ou chamar a API da Cloudflare. Também verifica os bindings canônicos e a ausência de D1, bearer global e backend secrets no source ao liberar o deploy.
-- `scripts/cloudflare/deploy-production-v3.sh`: deploy rotineiro do Worker já pronto, sempre submetido ao mesmo guard local.
-- `scripts/cloudflare/deploy-v3.sh`: **bootstrap D1 legado aposentado**, recusa qualquer execução; não cria D1, não altera R2 e não publica Worker. Um bootstrap inicial sem D1 exige procedimento específico, versionado e validado antes do uso.
+- `scripts/cloudflare/bootstrap-worker-v3.sh`: **bootstrap inicial único**, sem D1, sujeito ao `--bootstrap` do guard; exige que somente `worker_not_provisioned` e `cloudflare_ci_worker_editor_token_not_provisioned` continuem pendentes. Recusa se o Worker já existir, confirma o `workers.dev` canônico e usa credencial **Workers Product Admin temporária** que deverá ser revogada logo após a criação.
+- `scripts/cloudflare/deploy-production-v3.sh`: deploy rotineiro do Worker já existente. O script verifica tanto o guard completo quanto a existência real do Worker antes de chamar o Wrangler; um token Editor nunca deve criar infraestrutura.
+- `scripts/cloudflare/deploy-v3.sh`: **bootstrap D1 legado aposentado**, recusa qualquer execução; não cria D1, não altera R2 e não publica Worker.
 
 Não adicionar fallback para account antigo, Worker antigo ou D1 antigo.
 

@@ -21,11 +21,17 @@ WRANGLER = ROOT / "control-plane/cloudflare/wrangler.toml"
 WORKER_SOURCES = ROOT / "control-plane/cloudflare/src"
 
 
+BOOTSTRAP_BLOCKERS = frozenset({
+    "worker_not_provisioned",
+    "cloudflare_ci_worker_editor_token_not_provisioned",
+})
+
+
 class DeployGateError(ValueError):
     pass
 
 
-def validate(data: dict, config: dict, source: str, account_id: str | None = None) -> bool:
+def validate(data: dict, config: dict, source: str, account_id: str | None = None, *, bootstrap: bool = False) -> bool:
     canonical_account = data.get("account_id")
     if not isinstance(canonical_account, str) or not re.fullmatch(r"[0-9a-f]{32}", canonical_account):
         raise DeployGateError("invalid canonical account ID")
@@ -93,7 +99,12 @@ def validate(data: dict, config: dict, source: str, account_id: str | None = Non
     if ready == bool(blockers):
         raise DeployGateError("deployment_ready contradicts readiness blockers")
 
-    if ready:
+    if bootstrap and (ready or set(blockers) != BOOTSTRAP_BLOCKERS):
+        raise DeployGateError(
+            "initial Worker bootstrap requires exactly the Worker and CI token blockers"
+        )
+
+    if ready or bootstrap:
         if config.get("d1_databases"):
             raise DeployGateError("D1 binding remains in production Wrangler")
         if "env.DB" in source or "D1Database" in source:
@@ -107,10 +118,15 @@ def validate(data: dict, config: dict, source: str, account_id: str | None = Non
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--allow-blocked", action="store_true",
-                        help="Validate blocked foundation without authorizing deploy (CI only)")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--allow-blocked", action="store_true",
+                      help="Inspect blocked foundation without authorizing deploy (CI only)")
+    mode.add_argument("--bootstrap", action="store_true",
+                      help="Permit initial Worker creation only after all runtime cutovers")
     parser.add_argument("--github-output", type=Path, default=None)
     args = parser.parse_args()
+    if args.bootstrap and args.github_output is not None:
+        parser.error("Bootstrap cannot write routine deployment readiness outputs")
     try:
         data = json.loads(FOUNDATION.read_text(encoding="utf-8"))
         with WRANGLER.open("rb") as stream:
@@ -119,7 +135,10 @@ def main() -> int:
         if not source_paths:
             raise DeployGateError("Cloudflare Worker sources not found")
         source = "\n".join(path.read_text(encoding="utf-8") for path in source_paths)
-        ready = validate(data, config, source, os.environ.get("CLOUDFLARE_ACCOUNT_ID"))
+        ready = validate(
+            data, config, source, os.environ.get("CLOUDFLARE_ACCOUNT_ID"),
+            bootstrap=args.bootstrap,
+        )
     except (OSError, ValueError, TypeError, KeyError) as error:
         print(f"Cloudflare deploy gate invalid: {error}", file=sys.stderr)
         return 2
@@ -128,6 +147,10 @@ def main() -> int:
         with args.github_output.open("a", encoding="utf-8") as stream:
             stream.write(f"account_id={data['account_id']}\n")
             stream.write(f"deployment_ready={'true' if ready else 'false'}\n")
+
+    if args.bootstrap:
+        print("Cloudflare initial Worker bootstrap ELIGIBLE; routine production deployment remains blocked")
+        return 0
 
     if not ready:
         print(f"Cloudflare production deployment BLOCKED ({len(data['readiness_blockers'])} blockers)")
