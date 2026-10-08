@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 FOUNDATION = ROOT / "control-plane/cloudflare/production-foundation.json"
 WRANGLER = ROOT / "control-plane/cloudflare/wrangler.toml"
-WORKER_SOURCE = ROOT / "control-plane/cloudflare/src/index.ts"
+WORKER_SOURCES = ROOT / "control-plane/cloudflare/src"
 
 
 class DeployGateError(ValueError):
@@ -67,6 +67,15 @@ def validate(data: dict, config: dict, source: str, account_id: str | None = Non
             or evidence.get("sslmode") != "require"):
         raise DeployGateError("Hyperdrive binding/evidence mismatch")
 
+    bindings = (config.get("durable_objects") or {}).get("bindings") or []
+    if not isinstance(bindings, list) or {
+        (item.get("name"), item.get("class_name")) for item in bindings
+    } != {
+        ("DEVICE_SESSIONS", "DeviceSession"),
+        ("ENROLLMENT_SESSIONS", "EnrollmentSession"),
+    }:
+        raise DeployGateError("non-canonical Durable Objects bindings")
+
     buckets = config.get("r2_buckets") or []
     if (not isinstance(buckets, list) or len(buckets) != 1
             or buckets[0].get("binding") != "ARTIFACTS"
@@ -106,7 +115,10 @@ def main() -> int:
         data = json.loads(FOUNDATION.read_text(encoding="utf-8"))
         with WRANGLER.open("rb") as stream:
             config = tomllib.load(stream)
-        source = WORKER_SOURCE.read_text(encoding="utf-8")
+        source_paths = sorted(WORKER_SOURCES.glob("*.ts"))
+        if not source_paths:
+            raise DeployGateError("Cloudflare Worker sources not found")
+        source = "\\n".join(path.read_text(encoding="utf-8") for path in source_paths)
         ready = validate(data, config, source, os.environ.get("CLOUDFLARE_ACCOUNT_ID"))
     except (OSError, ValueError, TypeError, KeyError) as error:
         print(f"Cloudflare deploy gate invalid: {error}", file=sys.stderr)
