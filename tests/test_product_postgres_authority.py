@@ -17,7 +17,7 @@ SPACE_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "20261
 PROJECT_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007193500_project_authority_v1.sql"
 PROJECT_CONNECTION_CONTRACT = ROOT / "control-plane" / "supabase" / "migrations" / "20261007194000_project_connection_contract_hardening_v1.sql"
 MEMORY_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007194500_memory_authority_v1.sql"
-CLIENT_ISOLATION_MIGRATION = ROOT / "control-plane" / "supabase" / "migrations" / "20261007202500_product_client_grant_isolation_v1.sql"
+CLIENT_ISOLATION_MIGRATION = ROOT / "control-plane" / "supabase" / "migrations" / "20261007203000_product_client_grant_isolation_v1.sql"
 MIGRATION_REGISTRY = ROOT / "control-plane" / "supabase" / "migration-registry.json"
 ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 
