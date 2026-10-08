@@ -4,9 +4,6 @@ compatibility_date = "2026-09-27"
 compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 
-[triggers]
-crons = ["17 3 * * *"]
-
 [[d1_databases]]
 binding = "DB"
 database_name = "ordax-control-plane-v3-ci"
