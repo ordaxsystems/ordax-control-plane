@@ -166,7 +166,7 @@ Regras permanentes:
 - sem shell remoto genérico;
 - DNS só muda após gates independentes e rollback comprovado.
 
-O único membro administrativo já possui 2FA habilitado. O enforcement account-level continua sendo uma camada separada e deve ser ativado apenas por um fluxo administrativo em que o estado resultante possa ser verificado sem risco de lockout.
+A conta Cloudflare dedicada foi padronizada como `ordax-platform`. O único membro administrativo já tem 2FA habilitado e a política da conta agora exige 2FA (`enforce_twofactor=true`), ambos revalidados por leitura da API Cloudflare. A identidade da conta (`account_id`) foi preservada; esse controle não remove os demais blockers de publicação do Worker.
 
 ## DNS
 
