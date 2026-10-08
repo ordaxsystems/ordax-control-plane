@@ -409,9 +409,9 @@
     },
     {
       "name": "20261007204500_product_client_scoped_action_status_v1",
-      "applied_version": null,
-      "state": "pending",
-      "ledger_source_relation": "pending",
+      "applied_version": "20261008014205",
+      "state": "applied",
+      "ledger_source_relation": "exact",
       "source": {
         "repository": "ordaxsystems/ordax-control-plane",
         "path": "control-plane/supabase/migrations/20261007204500_product_client_scoped_action_status_v1.sql",
