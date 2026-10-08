@@ -42,7 +42,7 @@ Large binary artifacts belong in an object store, not in PostgreSQL.
 
 The canonical grant group and target lookup contract binds both
 `client_kind` and `client_id`. Migration
-`20261007202500_product_client_grant_isolation_v1.sql` makes action
+`20261007203000_product_client_grant_isolation_v1.sql` makes action
 enqueue use this **same** exact identity, and records `client_id` in
 private action requests and audit entries. Replayed idempotency requests
 must match the same client. The superseded enqueue/resolver signatures
