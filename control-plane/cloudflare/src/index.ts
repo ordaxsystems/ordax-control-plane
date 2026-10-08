@@ -61,7 +61,6 @@ const CONTROL_PLANE_CAPABILITIES = [
   "product_subject_auth_jwks_v1",
   "product_readonly_actions_v1",
   "product_typed_actions_v2",
-  "product_retention_v1",
 ];
 
 const ACTION_PREFIXES = [
