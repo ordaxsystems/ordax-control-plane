@@ -1712,13 +1712,16 @@ async function existingArtifactGrant(
   const readToken = randomHex(32);
   const readTokenSha256 = await sha256Text(readToken);
   const readExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-  await env.DB.prepare(
+  const tokenUpdate = await env.DB.prepare(
     `UPDATE ordax_artifacts
      SET read_token_sha256 = ?1, read_expires_at = ?2
      WHERE id = ?3 AND job_id = ?4 AND device_id = ?5`,
   ).bind(
     readTokenSha256, readExpiresAt, artifactId, jobId, deviceId,
   ).run();
+  if ((tokenUpdate.meta.changes ?? 0) !== 1) {
+    return json({ ok: false, error: "artifact_replay_conflict" }, 409);
+  }
 
   const origin = new URL(request.url).origin;
   return json({
@@ -2066,7 +2069,7 @@ async function completeMultipartArtifact(
   const readTokenSha256 = await sha256Text(readToken);
   const createdAt = nowIso();
   const readExpiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-  await env.DB.prepare(
+  const publishInsert = await env.DB.prepare(
     `INSERT INTO ordax_artifacts
       (id, job_id, device_id, storage_path, file_name, kind, content_type, sha256,
        size_bytes, metadata_json, read_token_sha256, read_expires_at, created_at)
@@ -2078,6 +2081,11 @@ async function completeMultipartArtifact(
     session.size_bytes, session.metadata_json, readTokenSha256,
     readExpiresAt, createdAt,
   ).run();
+  // A concurrent complete may have won the unique artifact ID. Never
+  // issue a signed URL for our token unless this write persisted it.
+  if ((publishInsert.meta.changes ?? 0) !== 1) {
+    return json({ ok: false, error: "artifact_publish_conflict" }, 409);
+  }
 
   const persisted = await env.DB.prepare(
     `SELECT job_id, device_id, storage_path, sha256, size_bytes
