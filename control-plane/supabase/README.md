@@ -38,6 +38,24 @@ authority.
 
 Large binary artifacts belong in an object store, not in PostgreSQL.
 
+## Product capability grants: client-scoped execution (proposed)
+
+The canonical grant group and target lookup contract binds both
+`client_kind` and `client_id`. Migration
+`20261007203000_product_client_grant_isolation_v1.sql` makes action
+enqueue use this **same** exact identity, and records `client_id` in
+private action requests and audit entries. Replayed idempotency requests
+must match the same client. The superseded enqueue/resolver signatures
+must not remain executable; the new enqueue requires a non-null client ID.
+
+Cloudflare must derive `client_id` from a verified, bound credential /
+OAuth client identity, **never** from request body fields or other
+untrusted action payload. This migration **alone does not enable the
+Product endpoint cutover**: JWT subject mapping, client verification,
+MCP consumer contracts and end-to-end execution tests still gate the
+`product_remote_authority` status in
+`control-plane/cloudflare/d1-cutover-authority-map.json`.
+
 ## Migration SSOT and provenance
 
 Applied migrations are immutable history. Never edit an applied migration, never

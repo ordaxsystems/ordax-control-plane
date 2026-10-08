@@ -17,6 +17,7 @@ SPACE_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "20261
 PROJECT_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007193500_project_authority_v1.sql"
 PROJECT_CONNECTION_CONTRACT = ROOT / "control-plane" / "supabase" / "migrations" / "20261007194000_project_connection_contract_hardening_v1.sql"
 MEMORY_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007194500_memory_authority_v1.sql"
+CLIENT_ISOLATION_MIGRATION = ROOT / "control-plane" / "supabase" / "migrations" / "20261007203000_product_client_grant_isolation_v1.sql"
 MIGRATION_REGISTRY = ROOT / "control-plane" / "supabase" / "migration-registry.json"
 ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 
@@ -441,6 +442,35 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
             )
         )
 
+
+    def test_product_execution_grant_is_bound_to_exact_client_identity(self) -> None:
+        sql = CLIENT_ISOLATION_MIGRATION.read_text(encoding="utf-8")
+        lower = sql.lower()
+        self.assertIn("drop function public.ordax_enqueue_product_action_v1(", lower)
+        self.assertIn("drop function private.ordax_resolve_product_remote_grant_v1(", lower)
+        self.assertNotIn(" cascade;", lower)
+        self.assertNotIn(" cascade\n", lower)
+        self.assertIn("and g.client_id = p_client_id", sql)
+        self.assertIn("or p_client_id is null", sql)
+        self.assertIn("and v_existing.client_id = p_client_id", sql)
+        self.assertIn("add column client_id text", sql)
+        self.assertEqual(sql.count("add column client_id text"), 2)
+        self.assertEqual(sql.count("insert into private.ordax_product_action_audit("), 3)
+        self.assertIn("client_kind, client_id, capability, access_mode, payload", sql)
+        self.assertIn("grant execute on function public.ordax_enqueue_product_action_v1(", lower)
+        self.assertIn(") to ordax_edge_executor;", lower)
+        self.assertNotIn("to authenticated;", lower)
+        self.assertNotIn("to service_role;", lower)
+
+    def test_product_adapter_requires_nonnull_canonical_client_id_for_enqueue(self) -> None:
+        self.assertIn('"p_client_kind",\n      "p_client_id",\n      "p_capability"', self.adapter)
+        self.assertIn("clientId: string;", self.adapter)
+        self.assertIn(
+            "canonicalRemoteClient(input.ownerUserId, input.clientKind, input.clientId)",
+            self.adapter,
+        )
+        self.assertIn("if (!client || client.p_client_id === null)", self.adapter)
+        self.assertIn("p_client_id: client.p_client_id", self.adapter)
 
     def test_grant_group_rpc_boundary_matches_canonical_migration(self) -> None:
         for rpc in (
