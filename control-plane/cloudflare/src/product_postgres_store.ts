@@ -140,8 +140,8 @@ const RPC_SPECS = {
     casts: ["uuid", "uuid", "uuid", "uuid", "uuid", "bigint", "uuid", "text", "uuid", "text", "jsonb", "text", "text"],
   },
   ordax_get_product_action_v1: {
-    keys: ["p_owner_user_id", "p_request_id"],
-    casts: ["uuid", "uuid"],
+    keys: ["p_owner_user_id", "p_client_kind", "p_client_id", "p_request_id"],
+    casts: ["uuid", "text", "text", "uuid"],
   },
   ordax_replace_remote_grant_group_v1: {
     keys: [
@@ -461,15 +461,20 @@ export async function reportProductAction(
 
 export async function getProductAction(
   env: ProductPostgresEnv,
-  ownerUserId: string,
-  requestId: string,
+  input: {
+    ownerUserId: string;
+    clientKind: RemoteClientKind;
+    clientId: string;
+    requestId: string;
+  },
 ): Promise<JsonObject | null> {
-  if (!UUID_RE.test(ownerUserId) || !UUID_RE.test(requestId)) {
+  const client = canonicalRemoteClient(input.ownerUserId, input.clientKind, input.clientId);
+  if (!client || client.p_client_id === null || !isCanonicalUuid(input.requestId)) {
     throw new ProductPostgresError("product_action_identity_invalid", 400);
   }
   return callRpc<JsonObject | null>(env, "ordax_get_product_action_v1", {
-    p_owner_user_id: ownerUserId,
-    p_request_id: requestId,
+    ...client,
+    p_request_id: input.requestId,
   });
 }
 
