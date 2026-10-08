@@ -417,6 +417,17 @@
         "path": "control-plane/supabase/migrations/20261007204500_product_client_scoped_action_status_v1.sql",
         "blob_sha": "dfb5d80d39c837a2458148b6bb5c63e1f63ae977"
       }
+    },
+    {
+      "name": "20261007205000_auth_eligibility_default_revocation_v2",
+      "applied_version": "20261008014538",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "ordaxsystems/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007205000_auth_eligibility_default_revocation_v2.sql",
+        "blob_sha": "5d08e34df49d4ab477452a8ba48926b33c1a31d0"
+      }
     }
   ]
 }
