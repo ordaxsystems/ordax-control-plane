@@ -365,6 +365,7 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
 
     def test_migration_registry_pins_canonical_database_and_history(self) -> None:
         registry = self.migration_registry
+        self.assertEqual(registry["canonical_database"]["project_name"], "ordax-platform")
         self.assertEqual(
             registry["canonical_database"]["project_ref"],
             "jhfphsjptrpmtnzkpwud",
