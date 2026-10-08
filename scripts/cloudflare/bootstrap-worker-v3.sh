@@ -77,6 +77,8 @@ esac
 
 npm install --ignore-scripts --no-audit --no-fund --package-lock=false \
   --prefix "$ROOT/control-plane/cloudflare"
+# Narrow the race with concurrent merges after dependency/API checks.
+bash "$ROOT/scripts/cloudflare/assert-current-main.sh" "$ROOT"
 npx --yes "wrangler@${WRANGLER_VERSION}" deploy --config "$CONFIG"
 
 # Confirm existence at the expected account/name after the single publication.
