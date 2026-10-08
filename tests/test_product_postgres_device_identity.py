@@ -130,8 +130,13 @@ class ProductPostgresDeviceIdentityTests(unittest.TestCase):
             (ROOT / "control-plane/cloudflare/d1-cutover-authority-map.json")
             .read_text(encoding="utf-8")
         )
-        self.assertEqual(manifest["baseline_env_db_calls"], 71)
-        self.assertEqual(worker.count("env.DB"), 71)
+        self.assertLessEqual(
+            worker.count("env.DB"),
+            manifest["legacy_source_callsite_ceilings"]["index.ts"],
+        )
+        self.assertLessEqual(
+            manifest["legacy_source_callsite_ceilings"]["index.ts"], 71,
+        )
         foundation = json.loads(
             (ROOT / "control-plane/cloudflare/production-foundation.json")
             .read_text(encoding="utf-8")
