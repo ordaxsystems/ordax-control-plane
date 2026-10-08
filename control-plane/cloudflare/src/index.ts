@@ -1375,70 +1375,6 @@ async function provisionDevice(request: Request, env: Env): Promise<Response> {
   }, 201);
 }
 
-async function deleteDevice(request: Request, env: Env, deviceId: string): Promise<Response> {
-  if (!await operatorAuthorized(request, env)) {
-    return json({ ok: false, error: "operator_unauthorized" }, 401);
-  }
-  if (!UUID_RE.test(deviceId)) {
-    return json({ ok: false, error: "device_id_invalid" }, 400);
-  }
-
-  const existing = await env.DB.prepare(
-    "SELECT id FROM ordax_devices WHERE id = ?1",
-  ).bind(deviceId).first();
-  if (!existing) return json({ ok: false, error: "device_not_found" }, 404);
-
-  const artifactRows = await env.DB.prepare(
-    "SELECT storage_path FROM ordax_artifacts WHERE device_id = ?1",
-  ).bind(deviceId).all<{ storage_path: string }>();
-  for (const row of artifactRows.results ?? []) {
-    if (row.storage_path) await env.ARTIFACTS.delete(row.storage_path);
-  }
-
-  const uploadRows = await env.DB.prepare(
-    "SELECT storage_path, upload_id FROM ordax_artifact_uploads WHERE device_id = ?1",
-  ).bind(deviceId).all<{ storage_path: string; upload_id: string }>();
-  for (const row of uploadRows.results ?? []) {
-    try {
-      await env.ARTIFACTS.resumeMultipartUpload(row.storage_path, row.upload_id).abort();
-    } catch {
-      // The R2 lifecycle may already have removed an abandoned upload.
-    }
-  }
-
-  const statements = [
-    env.DB.prepare(
-      "DELETE FROM ordax_job_events WHERE job_id IN (SELECT id FROM ordax_jobs WHERE device_id = ?1)",
-    ).bind(deviceId),
-    env.DB.prepare(
-      "DELETE FROM ordax_artifact_uploads WHERE device_id = ?1",
-    ).bind(deviceId),
-    env.DB.prepare(
-      "DELETE FROM ordax_artifacts WHERE device_id = ?1",
-    ).bind(deviceId),
-    env.DB.prepare(
-      "DELETE FROM ordax_jobs WHERE device_id = ?1",
-    ).bind(deviceId),
-    env.DB.prepare(
-      "DELETE FROM ordax_devices WHERE id = ?1",
-    ).bind(deviceId),
-  ];
-  const results = await env.DB.batch(statements);
-  const deleteResult = results[results.length - 1];
-  const remaining = await env.DB.prepare(
-    "SELECT id FROM ordax_devices WHERE id = ?1",
-  ).bind(deviceId).first();
-
-  return json({
-    ok: true,
-    device_id: deviceId,
-    deleted: !remaining,
-    device_delete_changes: deleteResult?.meta.changes ?? 0,
-    artifacts_deleted: artifactRows.results?.length ?? 0,
-    multipart_uploads_aborted: uploadRows.results?.length ?? 0,
-  });
-}
-
 async function enqueueJob(request: Request, env: Env): Promise<Response> {
   if (!await operatorAuthorized(request, env)) return json({ ok: false, error: "operator_unauthorized" }, 401);
   const body = await parseSmallJson(request);
@@ -2298,9 +2234,6 @@ export default {
     }
     if (request.method === "POST" && url.pathname === "/v3/devices") {
       return provisionDevice(request, env);
-    }
-    if (request.method === "DELETE" && parts[0] === "v3" && parts[1] === "devices" && parts.length === 3) {
-      return deleteDevice(request, env, parts[2]);
     }
     if (request.method === "GET" && url.pathname === "/oauth/consent") {
       return oauthConsentResponse(request);

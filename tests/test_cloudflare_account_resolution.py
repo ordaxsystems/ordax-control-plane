@@ -46,7 +46,6 @@ LEGACY_OPERATOR_HANDLER_ALLOWLIST = {
     "resolveProductGrantAdmin",
     "revokeProductGrant",
     "provisionDevice",
-    "deleteDevice",
     "enqueueJob",
     "getJob",
 }
@@ -362,17 +361,40 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
             heartbeat.index("this.ack(ws, requestId, true"),
         )
 
+    def test_unsafe_legacy_device_deletion_is_retired_before_first_deploy(self):
+        source = WORKER_SOURCE.read_text(encoding="utf-8")
+        foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
+        cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
+        self.assertNotIn("async function deleteDevice(", source)
+        self.assertNotIn("return deleteDevice(", source)
+        self.assertNotIn("artifacts_deleted:", source)
+        self.assertNotIn("multipart_uploads_aborted:", source)
+        self.assertNotIn("deleteDevice", LEGACY_OPERATOR_HANDLER_ALLOWLIST)
+        self.assertEqual(cutover["legacy_source_callsite_ceilings"]["index.ts"], 61)
+        self.assertEqual(sum(cutover["legacy_source_callsite_ceilings"].values()), 79)
+        self.assertEqual(sum(d1_access_count(x) for x in d1_worker_sources().values()), 79)
+        self.assertFalse(foundation["deployment_ready"])
+        self.assertIn(
+            "engineering_device_deletion_lifecycle_not_ready",
+            foundation["readiness_blockers"],
+        )
+        route = source.split(
+            'if (request.method === "POST" && url.pathname === "/v3/devices")', 1
+        )[1].split('if (request.method === "GET" && url.pathname === "/oauth/consent")', 1)[0]
+        self.assertNotIn('request.method === "DELETE"', route)
+
     def test_unsafe_legacy_retention_is_retired_before_first_deployment(self):
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
         foundation = json.loads(FOUNDATION.read_text(encoding="utf-8"))
         self.assertNotIn("retention.ts", cutover["legacy_source_callsite_ceilings"])
         self.assertFalse((CLOUDFLARE_SRC / "retention.ts").exists())
-        self.assertEqual(
-            sum(cutover["legacy_source_callsite_ceilings"].values()), 89
-        )
+        # Retiring retention must be a permanent reduction, not a fixed total
+        # that blocks future independent D1 cutovers.
+        remaining = sum(cutover["legacy_source_callsite_ceilings"].values())
+        self.assertLessEqual(remaining, 89)
         self.assertEqual(
             sum(d1_access_count(source) for source in d1_worker_sources().values()),
-            89,
+            remaining,
         )
         for source in d1_worker_sources().values():
             self.assertNotIn("runProductRetention", source)
