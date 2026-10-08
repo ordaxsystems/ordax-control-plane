@@ -33,6 +33,12 @@ def d1_worker_sources() -> dict[str, str]:
         for path in CLOUDFLARE_SRC.glob("*.ts")
     }
 
+def d1_source_names(sources: dict[str, str]) -> set[str]:
+    return {
+        name for name, source in sources.items()
+        if "D1Database" in source or d1_access_count(source) > 0
+    }
+
 
 OLD_ACCOUNT_ID = "ac1ca1b50d09c7a4cb81274d2aa1e78f"
 DEDICATED_ACCOUNT_ID = "42586bf13b61436219d21def299833e4"
@@ -157,11 +163,7 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
         ceilings = cutover["legacy_source_callsite_ceilings"]
         sources = d1_worker_sources()
-        d1_sources = {
-            name
-            for name, source in sources.items()
-            if "D1Database" in source or d1_access_count(source) > 0
-        }
+        d1_sources = d1_source_names(sources)
         mapped_tables = {
             table
             for domain in cutover["domains"]
@@ -288,12 +290,10 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         sources = d1_worker_sources()
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
         tracked = set(cutover["legacy_source_callsite_ceilings"])
-        self.assertNotIn("untracked_legacy.ts", tracked)
-        self.assertEqual(d1_access_count("const row = await env['DB'].prepare('SELECT 1')"), 1)
-        self.assertTrue(
-            {"untracked_legacy.ts": "env['DB']"} .keys() - tracked,
-            "untracked D1 source must be rejected by inventory",
-        )
+        sample = "const row = await env['DB'].prepare('SELECT 1')"
+        self.assertEqual(d1_access_count(sample), 1)
+        sources["untracked_legacy.ts"] = sample
+        self.assertIn("untracked_legacy.ts", d1_source_names(sources) - tracked)
 
     def test_d1_cutover_domains_are_explicit_about_authority_readiness(self):
         cutover = json.loads(D1_CUTOVER_MAP.read_text(encoding="utf-8"))
