@@ -117,6 +117,8 @@ O fluxo legado de metadata/multipart ainda depende de D1 e será removido no cut
 
 No destino Cloudflare permanece somente `DeviceSession`, responsável pela coordenação de WebSocket/sessão. O `EnrollmentSession` legado foi retirado da configuração e do source porque persistia identidade Product fora do PostgreSQL; o enrollment canônico já é atômico por RPC. A conta dedicada ainda não possui namespaces Durable Objects provisionados.
 
+No handshake de `/v3/device/ws`, o Worker autentica o dispositivo e valida `X-Ordax-Agent-Instance` e `X-Ordax-Boot-Id` **antes** de acionar o Durable Object. O `DeviceSession` também recusa identidades malformadas e confirma que o registro ainda não foi revogado imediatamente antes de aceitar o WebSocket; uma revogação concorrente não pode resultar em `101 Switching Protocols`. A consulta D1 nessa etapa permanece **legado de engineering runtime** e não autoriza produção até a autoridade canônica de device/jobs substituir todo o caminho.
+
 O destino mantém Durable Objects somente para coordenação de sessão/realtime. Estado de negócio durável deve estar no PostgreSQL; artifacts ficam no R2.
 
 ## Deploy
