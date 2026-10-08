@@ -383,6 +383,36 @@ distinguishes idempotent history from active authorization, without adding
 a second issuance path, granting an executor more privileges, or reviving
 a revoked account-default benefit.
 
+## Temporary Auth suspension and entitlement visibility
+
+Supabase Auth's `auth.users.banned_until` is a temporary account suspension
+signal. While its timestamp is in the future, the canonical
+`ordax_issue_account_default_entitlement_v2` refuses both first issuance
+and successful idempotent replay. It checks the same Auth row under its
+existing `FOR SHARE` lock, avoiding a stale account state.
+
+The existing authenticated SELECT policy on
+`public.ordax_entitlement_grants` also checks **live** account eligibility,
+including `banned_until`. It retains current-date validity and user/Space
+ownership checks. A private, zero-argument SECURITY DEFINER helper reads
+`auth.users` and `ordax_accounts` using only the identity supplied by
+`auth.uid()`; it cannot be used to probe other users. Only
+`authenticated` has EXECUTE permission; no direct Auth SELECT, private
+schema USAGE, or additional grant issuer authority is given.
+
+Suspension does **not** expire or delete entitlements, does not append
+a revocation event and does not generate a new source of truth.
+If an existing grant remains within its validity interval when the ban
+expires or is lifted, normal RLS visibility resumes. An expired grant
+is still expired; a prior account-created event never reissues one.
+The account deletion, anonymity and confirmation-loss transitions retain
+the separate Auth-owned permanent revocation behavior.
+
+Auth JWTs can remain cryptographically valid during a suspension, which is
+why the entitlement policy rechecks the current PostgreSQL Auth row.
+This guard covers entitlement SELECT and the default issuer, not a claim
+that every other OrdaX API or JWT session has been globally revoked.
+
 ## Memory authority
 
 Durable Memory uses a dedicated NOLOGIN/NOINHERIT `ordax_memory_executor`

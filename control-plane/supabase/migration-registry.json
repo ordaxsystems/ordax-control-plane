@@ -450,6 +450,17 @@
         "path": "control-plane/supabase/migrations/20261007210000_entitlement_rls_live_clock_v1.sql",
         "blob_sha": "bc3cb21ff1483b2bbdb244bbe37c6e34402098f2"
       }
+    },
+    {
+      "name": "20261007210500_entitlement_auth_suspension_v1",
+      "applied_version": "20261008022625",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "ordaxsystems/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007210500_entitlement_auth_suspension_v1.sql",
+        "blob_sha": "af79a7ff46bec5d743edfabc53f1edd97bde0493"
+      }
     }
   ]
 }
