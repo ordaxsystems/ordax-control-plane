@@ -118,7 +118,7 @@ def main() -> int:
         source_paths = sorted(WORKER_SOURCES.glob("*.ts"))
         if not source_paths:
             raise DeployGateError("Cloudflare Worker sources not found")
-        source = "\\n".join(path.read_text(encoding="utf-8") for path in source_paths)
+        source = "\n".join(path.read_text(encoding="utf-8") for path in source_paths)
         ready = validate(data, config, source, os.environ.get("CLOUDFLARE_ACCOUNT_ID"))
     except (OSError, ValueError, TypeError, KeyError) as error:
         print(f"Cloudflare deploy gate invalid: {error}", file=sys.stderr)
