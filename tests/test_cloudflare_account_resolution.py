@@ -296,6 +296,11 @@ class CloudflareAccountResolutionContractTests(unittest.TestCase):
         for source in d1_worker_sources().values():
             self.assertNotIn("runProductRetention", source)
         self.assertNotIn("async scheduled(", WORKER_SOURCE.read_text(encoding="utf-8"))
+        self.assertNotIn(
+            '"product_retention_v1"',
+            WORKER_SOURCE.read_text(encoding="utf-8"),
+            "Retired retention must not be advertised by /health",
+        )
         for config_name in ("wrangler.toml", "wrangler.ci.toml"):
             config_path = ROOT / "control-plane/cloudflare" / config_name
             with config_path.open("rb") as handle:
