@@ -561,7 +561,7 @@ export async function importLegacyProductDevice(
 /**
  * Canonical grant-group boundary. Not wired into the legacy D1 handlers:
  * changing public endpoints requires a coordinated Product client cutover.
- * PostgreSQL remains the sole authorization authority for these RPCs.
+ * PostgreSQL alone enforces access decisions for these RPCs.
  */
 export async function replaceRemoteGrantGroup(
   env: ProductPostgresEnv,
