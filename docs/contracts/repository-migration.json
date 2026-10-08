@@ -1,6 +1,6 @@
 {
   "$schema": "ordax-control-plane.repository-migration/1",
-  "status": "owner-cutover-complete-deploy-environment-proof-pending",
+  "status": "repository-rename-complete-validation-pending",
   "repository_id": "1406415892",
   "repository_name_changes_during_transfer": false,
   "redirect_dependency_allowed": false,
@@ -18,7 +18,7 @@
     "realtime_session_coordination": "durable_objects"
   },
   "previous_repository": "washingtonmsdj/ordax-control-plane",
-  "canonical_repository": "ordaxsystems/ordax-control-plane",
+  "canonical_repository": "ordaxsystems/ordax-platform",
   "completed_requirements": [
     "target-organization-membership-confirmed",
     "open-prs-audited",
@@ -29,7 +29,9 @@
     "consumer-references-repointed"
   ],
   "pending_requirements": [
-    "github-environments-and-deploy-credentials-revalidated"
+    "ci-green-after-repository-rename",
+    "github-environment-revalidated-after-repository-rename",
+    "consumer-references-repointed-after-repository-rename"
   ],
   "transfer_observed": {
     "repository_id": "1406415892",
@@ -45,5 +47,12 @@
     "deploy_job": "SKIPPED_FAIL_CLOSED",
     "apps_consumer_repoint_main": "01a8e45a76da214c664cb9c4f78837fe04f91fb0",
     "central_ssot_repoint_main": "b7d1ab3346130d2d371dcf594fb245dd3bc6e6b7"
+  },
+  "repository_rename": {
+    "previous_repository": "ordaxsystems/ordax-control-plane",
+    "canonical_repository": "ordaxsystems/ordax-platform",
+    "repository_id": "1406415892",
+    "rename_preserves_repository_identity": true,
+    "redirect_dependency_allowed": false
   }
 }
