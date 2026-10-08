@@ -50,7 +50,7 @@ begin
   -- Emit the receipt in the very same Auth transaction as the trust loss.
   with revoked as (
     update public.ordax_entitlement_grants g
-       set valid_until=pg_catalog.greatest(
+       set valid_until=greatest(
          v_now, g.valid_from + interval '1 microsecond')
      where g.user_id=new.id
        and g.source='product-default'
