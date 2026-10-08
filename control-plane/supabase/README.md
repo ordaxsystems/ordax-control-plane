@@ -38,7 +38,7 @@ authority.
 
 Large binary artifacts belong in an object store, not in PostgreSQL.
 
-## Product capability grants: client-scoped execution (proposed)
+## Product capability grants: client-scoped execution
 
 The canonical grant group and target lookup contract binds both
 `client_kind` and `client_id`. Migration
@@ -55,6 +55,23 @@ Product endpoint cutover**: JWT subject mapping, client verification,
 MCP consumer contracts and end-to-end execution tests still gate the
 `product_remote_authority` status in
 `control-plane/cloudflare/d1-cutover-authority-map.json`.
+
+### Action status: same per-client read isolation
+
+Migration `20261007204500_product_client_scoped_action_status_v1.sql`
+extends the verified `client_kind/client_id` boundary from enqueue and
+idempotency replay to reading action status/results. The former
+`ordax_get_product_action_v1(owner, request)` signature must be removed,
+not left as a privileged legacy overload. The replacement accepts
+`(owner, client_kind, client_id, request)` and matches all four columns.
+Only `ordax_edge_executor` may call it; direct user, service_role and
+anonymous execution remains revoked. Read-only postflight checks verify
+signatures, predicates and ACLs.
+
+The Worker PostgreSQL adapter requires the exact identity for status reads,
+but the existing `/mcp` and Product endpoints remain on their legacy
+handlers until the fully coordinated PostgreSQL-only transition.
+No D1/PG dual-write, fallbacks or early production deploys are permitted.
 
 ## Migration SSOT and provenance
 

@@ -18,6 +18,7 @@ PROJECT_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "202
 PROJECT_CONNECTION_CONTRACT = ROOT / "control-plane" / "supabase" / "migrations" / "20261007194000_project_connection_contract_hardening_v1.sql"
 MEMORY_AUTHORITY_V1 = ROOT / "control-plane" / "supabase" / "migrations" / "20261007194500_memory_authority_v1.sql"
 CLIENT_ISOLATION_MIGRATION = ROOT / "control-plane" / "supabase" / "migrations" / "20261007203000_product_client_grant_isolation_v1.sql"
+STATUS_CLIENT_MIGRATION = ROOT / "control-plane" / "supabase" / "migrations" / "20261007204500_product_client_scoped_action_status_v1.sql"
 MIGRATION_REGISTRY = ROOT / "control-plane" / "supabase" / "migration-registry.json"
 ADAPTER = ROOT / "control-plane" / "cloudflare" / "src" / "product_postgres_store.ts"
 
@@ -461,6 +462,40 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         self.assertIn(") to ordax_edge_executor;", lower)
         self.assertNotIn("to authenticated;", lower)
         self.assertNotIn("to service_role;", lower)
+
+    def test_product_action_status_rpc_cannot_read_other_oauth_client(self) -> None:
+        sql = STATUS_CLIENT_MIGRATION.read_text(encoding="utf-8")
+        self.assertIn("drop function public.ordax_get_product_action_v1(uuid, uuid)", sql)
+        self.assertNotIn(" cascade;", sql.lower())
+        self.assertIn("p_client_kind text", sql)
+        self.assertIn("p_client_id text", sql)
+        self.assertIn("r.client_kind = p_client_kind", sql)
+        self.assertIn("r.client_id = p_client_id", sql)
+        self.assertIn("r.owner_user_id = p_owner_user_id", sql)
+        self.assertIn("r.request_id = p_request_id", sql)
+        self.assertIn("p_client_id is not null", sql)
+        self.assertIn(
+            "grant execute on function public.ordax_get_product_action_v1(uuid, text, text, uuid)",
+            sql,
+        )
+        self.assertIn("to ordax_edge_executor;", sql)
+        self.assertNotIn("to authenticated;", sql)
+        self.assertNotIn("to service_role;", sql)
+
+    def test_product_action_status_adapter_never_uses_owner_only_scope(self) -> None:
+        self.assertIn(
+            'keys: ["p_owner_user_id", "p_client_kind", "p_client_id", "p_request_id"]',
+            self.adapter,
+        )
+        self.assertIn('casts: ["uuid", "text", "text", "uuid"]', self.adapter)
+        self.assertIn("clientKind: RemoteClientKind;", self.adapter)
+        self.assertIn("clientId: string;", self.adapter)
+        self.assertIn(
+            "canonicalRemoteClient(input.ownerUserId, input.clientKind, input.clientId)",
+            self.adapter,
+        )
+        self.assertIn("!client || client.p_client_id === null", self.adapter)
+        self.assertIn("p_request_id: input.requestId", self.adapter)
 
     def test_product_adapter_requires_nonnull_canonical_client_id_for_enqueue(self) -> None:
         self.assertIn('"p_client_kind",\n      "p_client_id",\n      "p_capability"', self.adapter)
