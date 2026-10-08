@@ -265,40 +265,45 @@ Arbitrary per-Space configuration is intentionally unavailable at this stage:
 selection stores an empty JSON object rather than accepting an unreviewed
 configuration containing credentials or executable instructions.
 
-## Default entitlement ledger (no billing authority)
+## Default entitlement ledger (verified account origin)
 
-The canonical `public.ordax_entitlement_grants` table remains the entitlement
-state SSOT. Issuance and revocation provenance is recorded through a source
-event ID and a private event journal. The pair `(source, source_event_id)` is
-unique; retries with identical inputs replay a receipt and different inputs
-using the same event ID fail closed.
+The canonical `public.ordax_entitlement_grants` table remains the single
+persistent state SSOT. `private.ordax_default_entitlement_policies` owns
+versioned policy definitions and starts empty; no entitlement is activated by
+creating this schema. Definitions may only be published by a reviewed migration.
 
-`ordax_entitlement_default_executor` is a NOLOGIN/NOINHERIT/NOBYPASSRLS
-role with **no direct relation privileges**. Only
-`ordax_issue_default_entitlement_v1` and
-`ordax_revoke_default_entitlement_v1` are callable by that executor.
-The source is hard-coded to `product-default`. The issuer obtains value and
-duration from an approved version of
-`private.ordax_default_entitlement_policies` rather than accepting arbitrary
-entitlement JSON, dates, or a caller-selected source. That catalog is empty
-at baseline; publishing a policy requires a separate reviewed migration.
-Only account-scoped defaults are supported here. Issuance serializes by event
-and subject/key to prevent parallel duplicate active default grants.
+The current account-default API is
+`ordax_issue_account_default_entitlement_v2(subject_user_id, entitlement_key,
+policy_version)`. Its source event is **not** supplied by a caller: PostgreSQL
+derives the one-time `account_created:<user_id>:<entitlement_key>` identifier
+from a real, non-deleted, non-anonymous and confirmed `auth.users` row
+and its matching bootstrapped `ordax_accounts` record. Those two rows are locked for key share while the
+transaction issues the grant. Event receipts remain private, deduplicated,
+auditable, and fail closed on replay with a different policy version.
 
-Revocation preserves the original grant row, shortens its effective validity,
-and appends an event; there is no normal hard-delete API. The event journal is
-private and has no direct client, service_role, or executor privileges. Events
-are cleaned up with their grant/account through FK cascades, subject to the
-future account lifecycle policy. No permanent post-deletion personal-data
-retention is implied.
+Issuance is account-scoped and takes the value and duration only from an
+active, versioned database policy, not arbitrary JSON or dates from a caller.
+Each account/entitlement key has exactly one account-created event; retries
+replay its original receipt and cannot mint another entitlement after expiry.
+Policy/version updates do not silently regenerate one-time account defaults.
 
-**Production remains fail-closed:** creating the NOLOGIN role does not issue
-a credential or authorize an external caller. A trusted service must verify
-the event's origin and target identity *before* invoking an RPC through a
-separately provisioned credential. Billing, promotion, admin issuance, paid
-subscription state and event signature validation are deliberately out of scope
-until their own signed/verified origin, idempotency, revocation and audit
-contracts exist. Do not expose this role via an unauthenticated edge handler.
+The old v1 issuer accepted a caller-supplied event ID and the v1 revoker
+accepted an unverified revocation reason. Both SQL RPC endpoints were removed
+after confirming that the canonical database contains no grants, policies or
+receipts to migrate. Revocation stays **fail-closed** until a distinct verified
+authority/source contract exists; no compatibility wrapper remains.
+
+`ordax_entitlement_default_executor` remains a NOLOGIN/NOINHERIT/NOBYPASSRLS
+role with no direct table/sequence/private-schema privileges and only EXECUTE
+on the v2 issuer. No runtime LOGIN membership or credential is provisioned for
+it. A trusted service must still authenticate *who may request* the account
+default issuance; the database proves the account-created origin, not the
+identity of the network caller. This is not a payment signature, not a billing receipt and not a claim
+of a user's real-world identity verification.
+
+Billing, promotion and administrative grants and revocations remain blocked
+pending independent proof, idempotency, audit, and operator authorization.
+Never expose this database executor through an unauthenticated endpoint.
 
 ## Memory authority
 
