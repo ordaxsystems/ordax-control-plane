@@ -461,6 +461,17 @@
         "path": "control-plane/supabase/migrations/20261007210500_entitlement_auth_suspension_v1.sql",
         "blob_sha": "af79a7ff46bec5d743edfabc53f1edd97bde0493"
       }
+    },
+    {
+      "name": "20261007211000_entitlement_session_revocation_v1",
+      "applied_version": "20261008023732",
+      "state": "applied",
+      "ledger_source_relation": "exact",
+      "source": {
+        "repository": "ordaxsystems/ordax-control-plane",
+        "path": "control-plane/supabase/migrations/20261007211000_entitlement_session_revocation_v1.sql",
+        "blob_sha": "79aa528bca804d32543cd5faa3497cefd6fb01db"
+      }
     }
   ]
 }
