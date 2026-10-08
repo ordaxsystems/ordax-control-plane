@@ -41,7 +41,7 @@ class OrdaxChatGptConnectorPackageTests(unittest.TestCase):
         manifest = json.loads((PLUGIN_ROOT / "plugin.json").read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory() as directory:
             archive, _ = build_archive(Path(directory))
-            self.assertEqual(archive.name, f"ordax-chatgpt-plugin-{manifest[\'version\']}.zip")
+            self.assertEqual(archive.name, f"ordax-chatgpt-plugin-{manifest['version']}.zip")
 
     def test_connector_has_single_authoritative_source_tree(self):
         self.assertTrue(PLUGIN_ROOT.is_dir())
