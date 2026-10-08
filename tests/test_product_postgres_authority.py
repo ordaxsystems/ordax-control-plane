@@ -441,5 +441,23 @@ class ProductPostgresAuthorityTests(unittest.TestCase):
         )
 
 
+    def test_grant_group_rpc_boundary_matches_canonical_migration(self) -> None:
+        for rpc in (
+            "ordax_replace_remote_grant_group_v1",
+            "ordax_revoke_remote_grant_group_v1",
+            "ordax_list_product_targets_v1",
+        ):
+            self.assertIn(f"create or replace function public.{rpc}", self.grant_groups_v2)
+            self.assertIn(f"grant execute on function public.{rpc}", self.grant_groups_v2)
+            self.assertIn(rpc + ": {", self.adapter)
+        self.assertIn("p_capabilities text[]", self.grant_groups_v2)
+        self.assertIn("p_access_modes text[]", self.grant_groups_v2)
+        self.assertIn('casts: ["uuid", "uuid", "uuid", "uuid", "text", "text", "text", "text[]", "text[]", "timestamptz"]', self.adapter)
+        self.assertIn("return sql.array(value, 25)", self.adapter)
+        self.assertIn("canonicalRemoteGrantGroup(input)", self.adapter)
+        self.assertIn("canonicalRemoteClient(input.ownerUserId", self.adapter)
+        self.assertNotIn("ordax_product_grants", self.adapter)
+
+
 if __name__ == "__main__":
     unittest.main()
