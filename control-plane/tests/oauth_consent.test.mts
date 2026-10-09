@@ -55,7 +55,7 @@ test("invalid OAuth request cannot become an authorization", async () => {
   const response = oauthConsentResponse(new Request("https://ordax.example/oauth/consent"), env);
   assert.equal(response.status, 200);
   const html = await response.text();
-  assert.match(html, /authorization_id ausente/);
+  assert.ok(html.includes('<code>authorization_id</code> ausente.'));
   assert.match(html, /if\(!authorizationId\)\{show\('missing'\);return\}/);
   assert.match(html, /q\('approve'\)\.disabled=true/);
   assert.match(html, /getAuthorizationDetails\(authorizationId\)/);
