@@ -12,7 +12,7 @@ from urllib.parse import urlsplit
 
 
 MAX_DISCOVERY_BYTES = 64 * 1024
-ISSUER_RE = re.compile(r"https://[a-z0-9-]+\\.supabase\\.co/auth/v1")
+ISSUER_RE = re.compile(r"https://[a-z0-9-]+\.supabase\.co/auth/v1")
 
 
 def _canonical_issuer(issuer: str) -> bool:
