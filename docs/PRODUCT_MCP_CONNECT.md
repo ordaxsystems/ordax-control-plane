@@ -9,7 +9,7 @@ ChatGPT normal
    |
    | ORDAX for ChatGPT
    v
-https://ordax-control-plane-v3.ordax-ac1ca1b50d09.workers.dev/mcp
+MCP remoto do Control Plane (definido pelo manifest publicado)
    |
    v
 ORDAX Runtime no Windows
@@ -28,6 +28,42 @@ A fonte do conector do ChatGPT fica em `plugins/ordax-chatgpt/`. O pacote conté
 O nome user-facing do conector é **ORDAX for ChatGPT**. **ORDAX Studio** permanece reservado ao aplicativo first-party do ORDAX; o conector não é o Studio e não contém um Runtime próprio.
 
 Outros providers devem seguir o mesmo padrão com conectores independentes, por exemplo `ORDAX for Grok`, reutilizando o mesmo protocolo, Control Plane, grants e handlers tipados.
+
+## Autenticação OAuth e cutover do Supabase
+
+O **SSOT de identidade** para a próxima versão do OrdaX Platform é o projeto Supabase
+`jhfphsjptrpmtnzkpwud` (`ordax-platform`, São Paulo). A página
+`/oauth/consent` deriva a origem desse projeto exclusivamente da variável
+`PRODUCT_AUTH_ISSUER`; a chave `SUPABASE_PUBLISHABLE_KEY` é pública e
+pertence ao mesmo projeto. Sem configuração válida, a rota retorna **503**
+(fail-closed), sem fallback ao projeto antigo.
+
+A tela não cria contas no fluxo de link mágico
+(`shouldCreateUser: false`). A aprovação de um OAuth client só é habilitada
+após validar os detalhes do `authorization_id` junto ao Supabase.
+
+**Migração ainda pendente:** o manifest do conector distribuído
+(`plugins/ordax-chatgpt/mcp.json`) aponta para o Worker publicado na conta
+Cloudflare antiga. Essa URL é operacionalmente legada e **não valida** o
+projeto Supabase canônico. Não redirecionar o manifest nem desligar o serviço
+antigo antes do cutover coordenado, preservando conexões existentes.
+
+Antes de anunciar o OAuth em produção no ambiente canônico:
+
+1. Habilitar o **OAuth 2.1 Server** no projeto Supabase correto, configurar
+   **Authentication → URL Configuration** (Site URL/redirects) e o caminho
+   `/oauth/consent` em **Authentication → OAuth Server**.
+2. Registrar os clients OAuth aprovados, com URIs de redirecionamento explícitas;
+   configurar envio de e-mails e a política de cadastro/recuperação.
+3. Concluir o cutover seguro Worker/D1 → PostgreSQL, secrets, grants e
+   vinculação do dispositivo na conta Cloudflare exclusiva do ORDAX.
+4. Publicar o Worker canônico **somente após** o gate de readiness e
+   testar PKCE, consentimento, revogação, isolamento por `client_id`,
+   ausência de grants, fluxo de e-mail, cadastro desabilitado e E2E no Runtime.
+5. Atualizar manifests e URL pública apenas depois de demonstrar E2E
+   no ambiente novo, preservando rollback e auditabilidade.
+
+O uso local do Studio não depende da ativação do serviço OAuth remoto.
 
 ## Configuração no Windows
 
