@@ -179,6 +179,23 @@ revogação/reconexão. Usar slugs arbitrários como UUIDs, fabricar grants ou
 enviar jobs para o consumidor legado sem esse contrato não resolve a migração.
 Os handlers preparados não estão conectados às rotas de `index.ts`.
 
+### Recuperação do consumidor Runtime atual
+
+[Runtime PR 65](https://github.com/ordaxsystems/ordax-runtime/pull/65), source
+`fd72a79`, corrige o único cliente HTTP/MCP Python existente: ID/estado da tarefa
+validados, ID aceito preservado em erro/timeout, `product_action_status` como GET
+autenticado e ACK perdido/malformado tratado como aceitação incerta. Um teste das
+ferramentas registradas prova POST → falha GET → recuperação GET, com um único
+POST. Não cria grant, fila, pairing ou executor e não adapta o envelope legado
+para fingir compatibilidade PostgreSQL. Runtime candidato 0.4.5 deriva sua versão
+de metadados próprios, separado do Studio/Blender/Device Agent, e requer o SDK
+MCP 1.30.0 verificado, sem correções privadas no SDK.
+
+O [contrato de recuperação](https://github.com/ordaxsystems/ordax-runtime/blob/codex/product-action-response-integrity/docs/PRODUCT-ACTION-RECOVERY.md)
+descreve limites, riscos, testes e source versus instalação. A enumeração de
+dependências de cutover acima permanece válida; esta correção não habilita rotas
+canônicas, não altera readiness/authority map nem comprova conta/dispositivo real.
+
 ### Correção do facade MCP atual
 
 O facade compartilhado também valida o conteúdo das respostas dos handlers
