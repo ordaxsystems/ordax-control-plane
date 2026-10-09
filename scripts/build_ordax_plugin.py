@@ -84,7 +84,7 @@ def build_archive(output_dir: Path) -> tuple[Path, str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Build the portable ORDAX for ChatGPT connector package"
+        description="Build the portable ORDAX Studio ChatGPT connector package"
     )
     parser.add_argument("--output-dir", type=Path, default=ROOT / "dist" / "plugins")
     args = parser.parse_args()

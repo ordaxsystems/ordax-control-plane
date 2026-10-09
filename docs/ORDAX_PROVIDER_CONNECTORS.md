@@ -31,15 +31,12 @@ On OrdaX OS, equivalent capabilities are provided by platform-owned runtime port
 
 ## Naming
 
-The user-facing application is **ORDAX Studio**.
-
-Provider-specific integration surfaces may use names such as:
-
-- `ORDAX for ChatGPT`;
-- `ORDAX for Grok`;
-- future provider-specific connectors.
-
-These names identify the connector boundary only. They do not rename Studio or Runtime.
+The user-facing application and ChatGPT connector display name are **ORDAX Studio**.
+The connector's stable package identity remains `ordax-chatgpt`; its display name
+and version are owned by `plugins/ordax-chatgpt/plugin.json`. The existing builder
+packages that single source. Sharing a display name does not transfer app, Runtime
+or platform ownership to the connector. Future providers retain their own thin
+protocol boundary and independent versioning.
 
 `Codex` has no structural role in ORDAX. If an authorized Codex integration exists, it is another client/connector under the same rules and receives no implicit privilege.
 
@@ -121,17 +118,37 @@ Provider-specific behavior belongs at the connector/protocol edge, not inside th
 
 Studio, Runtime and connectors version independently.
 
-```text
-ORDAX Studio             12.x
-ORDAX Runtime            1.x
-ORDAX for ChatGPT        3.x
-ORDAX for Grok           1.x
-```
-
-Compatibility is defined by published ORDAX protocol/contract versions, not by coupling releases together.
+App, Runtime and connector versions come from their own canonical manifests;
+the shared display name does not couple releases. Compatibility is defined by
+published ORDAX protocol/contract versions.
 
 ## Relationship to OrdaX OS
 
-The long-term first-party Studio app boundary is defined in `washingtonmsdj/ordax-apps/docs/STUDIO-BOUNDARY.md`.
+The portable Studio app source is owned by
+[ordaxsystems/ordax-apps](https://github.com/ordaxsystems/ordax-apps/blob/main/docs/STUDIO-BOUNDARY.md).
+Windows/device execution is owned by `ordaxsystems/ordax-runtime`; OS services
+and composition are owned by `ordaxsystems/ordax-os`. This repository owns the
+remote Control Plane, Product MCP and thin connectors. Source ownership does
+not prove package distribution, installed compatibility or production activation.
 
-The Windows implementation in this repository is the current source of truth for the Windows host/runtime path until the app package lifecycle and source cutover gates are proven. Do not create a parallel Studio source tree merely to match the target repository layout.
+OS Intelligence reuse follows its existing composition: Identity/Space → Memory
+→ Intelligence → Model Router → Local AI. See the
+[canonical OS contract and composition](https://github.com/ordaxsystems/ordax-os/blob/main/docs/INTELLIGENCE.md).
+The [context-continuity fix](https://github.com/ordaxsystems/ordax-os/pull/1556)
+rejects pending old-owner/Space results; it is source evidence, not plugin activation.
+The connector translates protocols and presents results; it must not reproduce
+Memory retrieval policy, model selection, profiles or execution authority.
+
+Currently `app_intelligence_catalog` and `app_intelligence_detail` read declarative,
+version-bound app semantics through existing typed device actions. They do not
+invoke the OS model, retrieve global/account Memory or grant execution. Device
+presence also proves no such capability. The plugin does not yet invoke OS IA.
+
+Remote OS Intelligence consumption requires a public authenticated transport,
+an exact client/device binding and explicit context/egress authorization, with
+bounded provenance-bearing results and account/Space continuity. It must respect
+the OS's consultative `authority=none` boundary; executing a proposed action
+still uses the canonical capability/grant/audit path. Do not expose a private
+Native endpoint, infer local Memory access from login or silently retarget/replay
+a request. Until those owner contracts and consumers are implemented and proven,
+do not advertise that installing this connector enables OS IA or cloud execution.
