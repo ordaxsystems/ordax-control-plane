@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import re
 import sys
+import tomllib
+from pathlib import Path
 import urllib.error
 import urllib.request
 from typing import Any
@@ -71,6 +73,27 @@ def validate_metadata(metadata: Any, expected_issuer: str) -> list[str]:
     return errors
 
 
+def _canonical_project_issuer() -> str:
+    """Resolve the immutable project identity from the production foundation."""
+    root = Path(__file__).resolve().parents[2]
+    try:
+        foundation = json.loads(
+            (root / "control-plane/cloudflare/production-foundation.json").read_text(encoding="utf-8")
+        )
+        with (root / "control-plane/cloudflare/wrangler.toml").open("rb") as stream:
+            wrangler = tomllib.load(stream)
+    except (OSError, json.JSONDecodeError, tomllib.TOMLDecodeError) as exc:
+        raise SystemExit("Cannot read the canonical PostgreSQL/Worker identity") from exc
+
+    ref = foundation.get("postgres", {}).get("project_ref")
+    if not isinstance(ref, str) or not re.fullmatch(r"[a-z0-9]{20}", ref):
+        raise SystemExit("Canonical Supabase project ref is invalid")
+    expected = f"https://{ref}.supabase.co/auth/v1"
+    if wrangler.get("vars", {}).get("PRODUCT_AUTH_ISSUER") != expected:
+        raise SystemExit("Wrangler Auth issuer differs from the canonical PostgreSQL project")
+    return expected
+
+
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, request: urllib.request.Request, fp: Any, code: int,
                          msg: str, headers: Any, newurl: str) -> None:
@@ -109,8 +132,8 @@ def main() -> int:
         raise SystemExit("usage: verify-product-oauth-server.py <issuer> [discovery-url]")
 
     issuer = sys.argv[1].rstrip("/")
-    if not _canonical_issuer(issuer):
-        raise SystemExit("issuer must be the canonical https://<project>.supabase.co/auth/v1")
+    if issuer != _canonical_project_issuer():
+        raise SystemExit("issuer differs from the canonical PostgreSQL project identity")
 
     discovery_url = (
         sys.argv[2]
