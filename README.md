@@ -4,6 +4,14 @@ Canonical remote platform repository for OrdaX: provider-neutral Control Plane, 
 
 ## Product MCP reads — source increment 2026-10-09
 
+Canonical device presence now has a source HTTP contract at
+`POST /v3/product/device/presence`, wired to the existing PostgreSQL device
+credential and presence RPCs. It accepts only device-authenticated observations,
+keeps coalesced heartbeat receipts distinct from failure, and adds no D1 write,
+grant or execution channel. The current Runtime heartbeat remains legacy and
+does not call this route; coordinated consumer migration and production
+activation remain pending. See [contract, tests and acceptance](docs/PRODUCT_DEVICE_PRESENCE.md).
+
 `ordax_targets` projects canonical Product fields (`device_name`, reported `online`, `last_seen_at`, `grant_groups`) and legacy D1 fields (`name`, `grants`). Canonical names and capability/access-mode descriptions survive MCP projection. Missing/invalid presence stays `null`; timestamps do not manufacture connectivity. Private fields and internal grant-group identifiers are not exported. Discovery is not authorization, a live reachability guarantee, synchronization or a cloud executor.
 
 The Studio client in `ordaxsystems/ordax-apps` rechecks discovery before new local-device actions. Queue/grant/audit semantics and accepted requests remain unchanged. Platform owns MCP projection, Runtime owns device execution, OS owns Web composition. Tests: `node --test control-plane/tests/*.test.mts`, covering canonical/legacy/offline/malformed/unauthenticated discovery. Source/CI does not prove deployment or a real-device test; production is a separate gate.

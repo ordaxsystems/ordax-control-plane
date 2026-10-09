@@ -30,6 +30,7 @@ import { scopeProductResult } from "./product_results";
 import { oauthConsentResponse } from "./oauth_consent";
 import { openAiAppsChallenge, publicProductPage } from "./public_pages";
 import { readBoundedJsonObject } from "./request_json";
+import { handleProductDevicePresence, PRODUCT_DEVICE_PRESENCE_PATH } from "./product_device_presence";
 import {
   enrollProductDevice,
   identifyProductDevice,
@@ -2232,6 +2233,9 @@ export default {
       });
     }
 
+    if (url.pathname === PRODUCT_DEVICE_PRESENCE_PATH) {
+      return handleProductDevicePresence(request, env);
+    }
     if (request.method === "POST" && url.pathname === "/v3/device/setup") {
       return deviceSetup(request, env);
     }

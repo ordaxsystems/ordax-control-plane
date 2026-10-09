@@ -222,6 +222,21 @@ Essas correções de source não removem o gate de publicação.
 
 ## Configuração no Windows
 
+### Presença canônica do dispositivo — source, ainda sem ativação
+
+O cadastro canônico em PostgreSQL agora possui um contrato HTTP de presença:
+`POST /v3/product/device/presence`, autenticado pela credencial do dispositivo
+e delegado aos RPCs existentes. Conta/OAuth no navegador não substitui essa
+credencial nem autoriza um heartbeat. Nome, presença observada e grants são
+informações distintas. `changed:false` significa coalescência da autoridade;
+não é falha e não informa que o timestamp mudou naquela chamada.
+
+O Runtime atual ainda usa `/v3/device/ws` legado e **não envia** para essa nova
+rota. Portanto, este incremento não comprova que um dispositivo real cadastrado
+apareça online no plugin nem que receba tarefas. Canal, grants, bindings e
+consumidor precisam migrar juntos, sem heartbeat ou persistência paralelos.
+O Worker permanece sujeito ao gate de produção. [Contrato, limites e provas](PRODUCT_DEVICE_PRESENCE.md).
+
 A instalação/conexão deve deixar claro que existem duas decisões diferentes:
 
 1. **Vincular o dispositivo à Conta ORDAX / conector remoto.** Isso determina quem pode alcançar o Runtime remotamente e quais ações/grants remotos são válidos.
