@@ -39,6 +39,7 @@ import {
 } from "./product_postgres_store";
 
 interface Env extends ProductAuthEnv, ProductPostgresEnv {
+  SUPABASE_PUBLISHABLE_KEY?: string;
   DB: D1Database;
   ARTIFACTS: R2Bucket;
   DEVICE_SESSIONS: DurableObjectNamespace<DeviceSession>;
@@ -2244,7 +2245,7 @@ export default {
       return provisionDevice(request, env);
     }
     if (request.method === "GET" && url.pathname === "/oauth/consent") {
-      return oauthConsentResponse(request);
+      return oauthConsentResponse(request, env);
     }
     if (request.method === "GET" && url.pathname === "/.well-known/oauth-protected-resource") {
       const authorizationServers = env.PRODUCT_AUTH_ISSUER ? [env.PRODUCT_AUTH_ISSUER] : [];
