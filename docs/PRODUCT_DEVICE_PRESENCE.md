@@ -72,8 +72,11 @@ login alone does not mean online, connected devices do not receive grants, and
 presence alone does not release Studio actions or prove Runtime delivery.
 
 Runtime's current single heartbeat/command channel is still the legacy
-`/v3/device/ws` transport backed by D1. **It does not call this new endpoint.**
-Its consumer must migrate with credential identity, command delivery, existing
+`/v3/device/ws` transport backed by D1. The Runtime source consumer prepares
+explicit `ProductDevicePresenceClient.report` calls with a verified canonical
+UUID and device credential. The legacy WebSocket credential is not imported
+or assumed equivalent. **The normal heartbeat does not call it automatically.**
+Its transport must migrate with credential identity, command delivery, existing
 gateway/local policies, canonical project bindings, leases/reports and audit.
 Do not add a second heartbeat thread or D1/PG dual writes to make the device
 appear ready. Devices enrolled in PostgreSQL are not thereby enrolled in the

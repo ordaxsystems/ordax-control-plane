@@ -4,6 +4,12 @@ Canonical remote platform repository for OrdaX: provider-neutral Control Plane, 
 
 ## Product MCP reads — source increment 2026-10-09
 
+Worker transport/source checks previously stranded in Runtime now run in
+`tests/test_device_transport_contract.py` at their Platform owner. They cover
+multipart integrity, grant/admin revocation, canonical project/browser scopes,
+execution fencing and the existing retention deployment blocker. These checks
+do not restore the retired D1 retention prototype or activate production.
+
 Canonical device presence now has a source HTTP contract at
 `POST /v3/product/device/presence`, wired to the existing PostgreSQL device
 credential and presence RPCs. It accepts only device-authenticated observations,
