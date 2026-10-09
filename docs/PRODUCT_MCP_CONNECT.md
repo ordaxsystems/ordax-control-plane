@@ -87,6 +87,48 @@ aprovação, troca de código, renovação, revogação e acesso autorizado no R
 
 O uso local do Studio não depende da ativação do serviço OAuth remoto.
 
+## Descoberta dos dispositivos da conta
+
+Entrar na Conta ORDAX e conectar um dispositivo não concede acesso automático
+ao cliente de IA. O catálogo canônico consulta dispositivos ativos com grants
+ativos e não expirados para o usuário e o **cliente OAuth exato**. Esses filtros
+pertencem a `ordax_list_product_targets_v1`, não à UI, ao conector ou a um scan
+de computadores. Os claims assinados `sub` e `client_id` identificam o usuário
+e o cliente; campos enviados em headers, argumentos ou metadata do usuário
+não escolhem essa autoridade. A distinção entre identidade OAuth e acesso aos
+dados segue o [contrato OAuth do Supabase](https://supabase.com/docs/guides/auth/oauth-server/token-security).
+
+Um catálogo vazio pode significar ausência de grants para esse cliente. Já
+falha de autenticação, conta inelegível, banco indisponível ou resposta inválida
+precisam aparecer como erro, sem fingir que o catálogo disponível está vazio.
+`online` é a presença informada pela plataforma; `last_seen_at` é a última
+atividade informada. Nenhum deles concede execução. Um dispositivo offline
+pode continuar listado, mas operações locais dependem do Runtime conectado.
+
+**Estado comprovado no source em 2026-10-09:**
+
+- A projeção MCP preserva nome, presença e descrições dos grants canônicos,
+  excluindo campos privados e identificadores internos de grupos.
+- `product_mcp_discovery.ts` prepara handlers de leitura que verificam OAuth
+  com o boundary existente e chamam o adapter PostgreSQL existente. Catálogos
+  são relidos por requisição e recebem `Cache-Control: no-store`; erros não
+  expõem SQL, credenciais nem detalhes internos.
+- O teste `product_mcp_discovery.test.mts` percorre requisição MCP → verificação
+  de token assinado → reader RPC controlado → projeção pública. Também testa
+  negação antes do reader, catálogo alterado/vazio, conta inelegível, UUIDs
+  inválidos/duplicados e ausência da configuração PostgreSQL. Não é E2E real.
+- **As rotas em `index.ts` ainda usam D1.** Os novos handlers não estão
+  ativados. A migração coordenada de descoberta, grants, ações e status está
+  pendente no item #42 e no `d1-cutover-authority-map.json`.
+- A publicação permanece bloqueada por `production-foundation.json`.
+  CI verde ou esses testes de source não removem o gate de produção.
+
+Para aceitar a funcionalidade em produção, demonstrar OAuth/consentimento no
+emissor canônico, isolamento entre duas contas e dois clientes OAuth, ausência
+e revogação de grants, presença online/offline e uma ação autorizada pelo
+Runtime. A conta autenticada precisa ser elegível no momento da consulta.
+Não redirecionar apenas a descoberta ao PostgreSQL mantendo execução em D1.
+
 ## Configuração no Windows
 
 A instalação/conexão deve deixar claro que existem duas decisões diferentes:

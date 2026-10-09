@@ -393,7 +393,8 @@ async function bodyJson(response: Response): Promise<JsonObject> {
   }
 }
 
-function sanitizeTargets(payload: JsonObject): JsonObject {
+// Shared public projection for HTTP discovery and MCP; never grant resolution.
+export function sanitizeTargets(payload: JsonObject): JsonObject {
   const rawTargets = Array.isArray(payload.targets) ? payload.targets : [];
   const boundedText = (value: unknown, limit = 128): string | null =>
     typeof value === "string" && value.length <= limit && !/[\x00-\x1f]/.test(value) ? value : null;
