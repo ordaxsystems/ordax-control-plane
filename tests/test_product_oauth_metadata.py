@@ -139,6 +139,15 @@ class OAuthMetadataReadinessTests(unittest.TestCase):
         self.assertIn("DCR advertised", output.getvalue())
         self.assertIn("not exercised", output.getvalue())
 
+    def test_cli_rejects_a_different_supabase_project(self):
+        legacy = "https://eobcxuyvhkvdmkbaihwh.supabase.co/auth/v1"
+        with patch.object(sys, "argv", ["oauth-readiness", legacy]):
+            with self.assertRaisesRegex(SystemExit, "differs from the canonical"):
+                oauth.main()
+
+    def test_canonical_issuer_matches_committed_foundation(self):
+        self.assertEqual(oauth._canonical_project_issuer(), ISSUER)
+
     def test_cli_disallows_foreign_discovery_url(self):
         with patch.object(sys, "argv", ["oauth-readiness", ISSUER, "https://evil.invalid/.well-known/oauth"]):
             with self.assertRaisesRegex(SystemExit, "must match the canonical issuer"):
