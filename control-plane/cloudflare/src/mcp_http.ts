@@ -751,7 +751,7 @@ export async function handleOrdaxMcp(request: Request, handlers: OrdaxMcpHandler
     protocolVersion: "2025-06-18",
     capabilities: { tools: { listChanged: false } },
     serverInfo: { name: "ORDAX Control Plane", version: "0.4.2" },
-    instructions: "Use ORDAX Studio only when the user asks to work with a connected ORDAX device or one of its registered projects. List connected devices before project-scoped work when the target is unknown. Respect project boundaries and the user's explicit intent. Write, execute, Git and Blender mutation tools remain grant- and audit-protected by the ORDAX Runtime.",
+    instructions: "Use ORDAX Studio only when the user asks to work with a connected ORDAX device or one of its registered projects. List authorized devices before project-scoped work when the target is unknown. The device hosting this conversation is not automatically the execution target. Select the user's intended device and project; do not silently switch targets. Device kind, account login and reported presence do not grant file, desktop or mobile capabilities. Use only tools authorized and supported by the selected device; do not infer phone file or sensor access from a mobile catalog entry. A cloud-hosted conversation, stored file or GitHub repository does not establish a cloud executor. Respect project boundaries and the user's explicit intent. Write, execute, Git and Blender mutation tools remain grant- and audit-protected by the ORDAX Runtime.",
   });
   if (method === "tools/list") return rpcResult(id, { tools: toolDefinitions() });
   if (method === "tools/call") {
