@@ -1,5 +1,6 @@
 import { OWNER_DEVICE_COMPUTER_GRANT_PROFILES } from "./product_device_grants.ts";
 import { readBoundedJsonObject } from "./request_json.ts";
+import { isCanonicalUuid } from "./product_remote_grant_contract.ts";
 
 export type JsonObject = Record<string, unknown>;
 
@@ -373,7 +374,9 @@ function toolInvocationText(name: string): { invoking: string; invoked: string }
 }
 
 function responseJson(value: unknown, status = 200): Response {
-  return new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json; charset=utf-8" } });
+  return new Response(JSON.stringify(value), { status, headers: {
+    "content-type": "application/json; charset=utf-8", "cache-control": "no-store",
+  } });
 }
 
 function rpcResult(id: unknown, result: unknown): Response {
@@ -476,6 +479,7 @@ function sanitizeActionPayload(payload: JsonObject, requestId?: string): JsonObj
       action: {
         name: typeof action.action === "string" ? action.action : "",
         project: typeof action.project === "string" ? action.project : null,
+        ...(isCanonicalUuid(action.project_id) ? { project_id: action.project_id } : {}),
         status,
         result: action.result ?? null,
         error_code: typeof action.error_code === "string" ? action.error_code : null,

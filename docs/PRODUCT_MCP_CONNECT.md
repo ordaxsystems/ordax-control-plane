@@ -109,7 +109,7 @@ pode continuar listado, mas operações locais dependem do Runtime conectado.
 
 - A projeção MCP preserva nome, presença e descrições dos grants canônicos,
   excluindo campos privados e identificadores internos de grupos.
-- `product_mcp_discovery.ts` prepara handlers de leitura que verificam OAuth
+- `product_mcp_reads.ts` prepara handlers de leitura que verificam OAuth
   com o boundary existente e chamam o adapter PostgreSQL existente. Catálogos
   são relidos por requisição e recebem `Cache-Control: no-store`; erros não
   expõem SQL, credenciais nem detalhes internos.
@@ -128,6 +128,56 @@ emissor canônico, isolamento entre duas contas e dois clientes OAuth, ausência
 e revogação de grants, presença online/offline e uma ação autorizada pelo
 Runtime. A conta autenticada precisa ser elegível no momento da consulta.
 Não redirecionar apenas a descoberta ao PostgreSQL mantendo execução em D1.
+
+## Acompanhamento canônico de tarefas — source preparado
+
+O mesmo factory `createCanonicalProductMcpReadHandlers` prepara a leitura de
+`ordax_get_product_action_v1`. A identidade é verificada em cada requisição;
+o RPC existente verifica elegibilidade da conta e seleciona somente o request
+do usuário e do cliente OAuth exato. Um resultado ausente retorna 404, uma
+conta inelegível retorna 403 e falhas de configuração/transporte retornam 503.
+Registros malformados, IDs divergentes e estados desconhecidos retornam 502,
+sem simular conclusão ou publicar SQL/credenciais.
+
+Os estados publicados são `queued`, `leased`, `running`, `succeeded`, `failed`
+e `cancelled`. A projeção MCP mantém o request de continuação e distingue
+pendência de estado terminal. O `project_id` canônico é preservado; `project`
+fica nulo porque não existe conversão oficial para o slug legado nesse RPC.
+O resultado pertence ao contrato Product do Runtime; campos extras de banco,
+payload de entrada e identidades internas não são incluídos na resposta HTTP.
+Timestamps válidos são normalizados e as respostas recebem `no-store`, também
+na saída JSON MCP. A consulta não concede execução nem cria audit/queue
+paralelos; usa somente o adapter de leitura existente.
+
+O histórico de uma ação aceita é consultado diretamente por sua identidade,
+sem pedir catálogo de dispositivos ou disparar outra ação. Desktop offline
+ou catálogo indisponível não apagam essa identidade. Isso não equivale a
+executar novas operações offline. A autoridade do RPC determina o acesso
+ao histórico; o handler não adiciona grants nem amplia seu escopo.
+
+`product_mcp_action_status.test.mts` exercita token assinado → handler/MCP →
+reader controlado → resultado público, incluindo todas as transições,
+negações, identidade enviada pelo caller ignorada, ausência de replay,
+preservação do UUID de projeto e ausência de configuração PostgreSQL.
+Esses testes não comprovam execução, filtragem ou revogação em banco real.
+
+### Dependências para ativar as rotas juntas
+
+O Runtime remoto foi conferido no commit `113c49e72eb6f12ed12ca4597478765102c18ac7`.
+O [consumidor Product auditado](https://github.com/ordaxsystems/ordax-runtime/blob/113c49e72eb6f12ed12ca4597478765102c18ac7/ordax_dev_agent/product_remote.py)
+ainda exige o envelope legado `action`, `arguments`, `context`, `grant` e
+reconhece `ordax.product.invoke`/`ordax.product.read.invoke`.
+O [transporte auditado](https://github.com/ordaxsystems/ordax-runtime/blob/113c49e72eb6f12ed12ca4597478765102c18ac7/ordax_dev_agent/cloudflare_control_plane.py)
+usa o WebSocket `/v3/device/ws` e o audit `/v3/product/audit` existentes.
+Isso não demonstra consumo da fila Product privada PostgreSQL.
+
+Antes do cutover, Platform e Runtime precisam provar o contrato de enqueue →
+claim/lease → execução com política local → report/audit → status. Também
+precisam publicar o vínculo entre UUID do projeto canônico e projeto local,
+preservar requests já aceitos, prevenir execução duplicada e validar
+revogação/reconexão. Usar slugs arbitrários como UUIDs, fabricar grants ou
+enviar jobs para o consumidor legado sem esse contrato não resolve a migração.
+Os handlers preparados não estão conectados às rotas de `index.ts`.
 
 ## Configuração no Windows
 
