@@ -53,8 +53,12 @@ Antes de anunciar o OAuth em produção no ambiente canônico:
 1. Habilitar o **OAuth 2.1 Server** no projeto Supabase correto, configurar
    **Authentication → URL Configuration** (Site URL/redirects) e o caminho
    `/oauth/consent` em **Authentication → OAuth Server**.
-2. Registrar os clients OAuth aprovados, com URIs de redirecionamento explícitas;
-   configurar envio de e-mails e a política de cadastro/recuperação.
+2. Configurar o modo de clientes OAuth: **registro dinâmico (DCR)** para
+   provedores MCP compatíveis, com consentimento por usuário e monitoramento,
+   **ou** pré-cadastrar cada cliente com URI de redirecionamento exata.
+   **Zero clientes pré-cadastrados não é falha por si só se o DCR estiver
+   habilitado.** Configurar também envio de e-mails e a política de
+   cadastro/recuperação.
 3. Concluir o cutover seguro Worker/D1 → PostgreSQL, secrets, grants e
    vinculação do dispositivo na conta Cloudflare exclusiva do ORDAX.
 4. Publicar o Worker canônico **somente após** o gate de readiness e
@@ -62,6 +66,24 @@ Antes de anunciar o OAuth em produção no ambiente canônico:
    ausência de grants, fluxo de e-mail, cadastro desabilitado e E2E no Runtime.
 5. Atualizar manifests e URL pública apenas depois de demonstrar E2E
    no ambiente novo, preservando rollback e auditabilidade.
+
+### Verificação não destrutiva do OAuth canônico
+
+Executar na raiz do repositório:
+
+```bash
+python scripts/cloudflare/verify_product_oauth_server.py https://jhfphsjptrpmtnzkpwud.supabase.co/auth/v1
+```
+
+O verificador aceita **somente** o emissor do projeto Supabase, valida a
+descoberta OAuth (issuer, endpoints na mesma origem, PKCE S256, cliente público
+`none` e anúncio do registro dinâmico) e não aceita redirecionamentos de
+HTTP nem respostas JSON excessivas. Não usa token administrativo.
+
+**Limitação deliberada:** o endpoint de registro pode ser **anunciado** sem
+que o cadastro de um cliente tenha sido testado. Esse diagnóstico apenas lê
+metadados; não cria cliente, sessão nem grant e não substitui E2E de registro,
+aprovação, troca de código, renovação, revogação e acesso autorizado no Runtime.
 
 O uso local do Studio não depende da ativação do serviço OAuth remoto.
 
