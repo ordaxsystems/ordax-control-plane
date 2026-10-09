@@ -1,12 +1,35 @@
-const AUTH_ORIGIN = "https://eobcxuyvhkvdmkbaihwh.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_GQUBlAVTzgNtscw9iE5vLQ_GGtdmsL5";
+export interface OAuthConsentEnv {
+  PRODUCT_AUTH_ISSUER?: string;
+  SUPABASE_PUBLISHABLE_KEY?: string;
+}
+
+// The Product Auth issuer is the single source of truth for the OAuth
+// consent project's origin. Never configure a separate Supabase URL.
+function consentProvider(env: OAuthConsentEnv): { origin: string; publishableKey: string } | null {
+  const issuer = env.PRODUCT_AUTH_ISSUER ?? "";
+  const publishableKey = env.SUPABASE_PUBLISHABLE_KEY ?? "";
+  const match = /^https:\/\/([a-z0-9-]+)\.supabase\.co\/auth\/v1$/.exec(issuer);
+  if (!match || !/^sb_publishable_[A-Za-z0-9_-]+$/.test(publishableKey)) return null;
+  return { origin: `https://${match[1]}.supabase.co`, publishableKey };
+}
 const SUPABASE_JS = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/+esm";
 
 function jsonForScript(value: string): string {
   return JSON.stringify(value).replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026");
 }
 
-export function oauthConsentResponse(request: Request): Response {
+export function oauthConsentResponse(request: Request, env: OAuthConsentEnv): Response {
+  const provider = consentProvider(env);
+  if (!provider) {
+    return new Response("ORDAX OAuth indisponível: configuração de autenticação inválida.", {
+      status: 503,
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+        "cache-control": "no-store",
+        "x-content-type-options": "nosniff",
+      },
+    });
+  }
   const url = new URL(request.url);
   const authorizationId = url.searchParams.get("authorization_id") ?? "";
   const nonce = crypto.randomUUID().replace(/-/g, "");
@@ -24,15 +47,15 @@ export function oauthConsentResponse(request: Request): Response {
 import { createClient } from "${SUPABASE_JS}";
 const authorizationId=${jsonForScript(authorizationId)};
 const returnUrl=${jsonForScript(redirectUrl)};
-const client=createClient(${jsonForScript(AUTH_ORIGIN)},${jsonForScript(SUPABASE_PUBLISHABLE_KEY)},{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+const client=createClient(${jsonForScript(provider.origin)},${jsonForScript(provider.publishableKey)},{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
 const q=(id)=>document.getElementById(id); const show=(id,on=true)=>q(id).classList.toggle('hidden',!on); const status=(id,msg)=>q(id).textContent=msg||'';
-async function load(){if(!authorizationId){show('missing');return}const {data:{session}}=await client.auth.getSession();if(!session){show('login');show('consent',false);return}show('login',false);show('consent');q('userEmail').textContent=session.user.email||session.user.id;const {data,error}=await client.auth.oauth.getAuthorizationDetails(authorizationId);if(error){status('consentStatus',error.message);return}if(!('authorization_id' in data)){location.href=data.redirect_url;return}q('clientName').textContent=data.client?.name||data.client_id||'Cliente ORDAX';q('redirectUri').textContent=data.redirect_uri||'';q('scopes').textContent=data.scope||'openid email offline_access'}
+async function load(){q('approve').disabled=true;if(!authorizationId){show('missing');return}const {data:{session}}=await client.auth.getSession();if(!session){show('login');show('consent',false);return}show('login',false);show('consent');q('userEmail').textContent=session.user.email||session.user.id;const {data,error}=await client.auth.oauth.getAuthorizationDetails(authorizationId);if(error||!data){status('consentStatus',error?.message||'Solicitação OAuth inválida.');return}if(!('authorization_id' in data)){location.href=data.redirect_url;return}q('clientName').textContent=data.client?.name||data.client_id||'Cliente ORDAX';q('redirectUri').textContent=data.redirect_uri||'';q('scopes').textContent=data.scope||'openid email offline_access';q('approve').disabled=false}
 q('passwordLogin').onclick=async()=>{status('loginStatus','Entrando…');const {error}=await client.auth.signInWithPassword({email:q('email').value.trim(),password:q('password').value});if(error){status('loginStatus',error.message);return}location.reload()};
-q('magicLogin').onclick=async()=>{const email=q('email').value.trim();if(!email){status('loginStatus','Informe seu e-mail.');return}status('loginStatus','Enviando link…');const {error}=await client.auth.signInWithOtp({email,options:{emailRedirectTo:returnUrl}});status('loginStatus',error?error.message:'Link enviado. Abra o e-mail neste navegador para continuar.')};
+q('magicLogin').onclick=async()=>{const email=q('email').value.trim();if(!email){status('loginStatus','Informe seu e-mail.');return}status('loginStatus','Enviando link…');const {error}=await client.auth.signInWithOtp({email,options:{emailRedirectTo:returnUrl,shouldCreateUser:false}});status('loginStatus',error?error.message:'Link enviado. Abra o e-mail neste navegador para continuar.')};
 q('approve').onclick=async()=>{status('consentStatus','Autorizando…');const {data,error}=await client.auth.oauth.approveAuthorization(authorizationId);if(error){status('consentStatus',error.message);return}location.href=data.redirect_url};
 q('deny').onclick=async()=>{const {data,error}=await client.auth.oauth.denyAuthorization(authorizationId);if(error){status('consentStatus',error.message);return}location.href=data.redirect_url};
 q('signOut').onclick=async()=>{await client.auth.signOut();location.reload()};
 await load();
 </script></body></html>`;
-  return new Response(html,{status:200,headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer","x-content-type-options":"nosniff","content-security-policy":`default-src 'none'; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net; style-src 'nonce-${nonce}'; connect-src ${AUTH_ORIGIN}; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`}});
+  return new Response(html,{status:200,headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store","referrer-policy":"no-referrer","x-content-type-options":"nosniff","content-security-policy":`default-src 'none'; script-src 'nonce-${nonce}' https://cdn.jsdelivr.net; style-src 'nonce-${nonce}'; connect-src ${provider.origin}; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`}});
 }
