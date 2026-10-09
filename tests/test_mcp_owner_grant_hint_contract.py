@@ -14,7 +14,8 @@ class McpOwnerGrantHintContractTests(unittest.TestCase):
 
     def test_grant_failure_remains_fail_closed(self) -> None:
         self.assertIn('createdPayload.error === "product_grant_not_resolved"', self.source)
-        self.assertIn('return textToolResult(hint ? { ...createdPayload, ...hint } : createdPayload, true)', self.source)
+        self.assertIn('return textToolResult({ ok: false, error: "product_grant_not_resolved", ...hint }, true)', self.source)
+        self.assertNotIn('{ ...createdPayload, ...hint }', self.source)
         self.assertNotIn('createOwnerDeviceComputerGrant', self.source)
 
     def test_hints_point_only_to_reviewed_owner_profiles(self) -> None:

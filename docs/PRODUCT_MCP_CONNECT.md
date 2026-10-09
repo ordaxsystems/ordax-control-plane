@@ -87,6 +87,122 @@ aprovação, troca de código, renovação, revogação e acesso autorizado no R
 
 O uso local do Studio não depende da ativação do serviço OAuth remoto.
 
+## Descoberta dos dispositivos da conta
+
+Entrar na Conta ORDAX e conectar um dispositivo não concede acesso automático
+ao cliente de IA. O catálogo canônico consulta dispositivos ativos com grants
+ativos e não expirados para o usuário e o **cliente OAuth exato**. Esses filtros
+pertencem a `ordax_list_product_targets_v1`, não à UI, ao conector ou a um scan
+de computadores. Os claims assinados `sub` e `client_id` identificam o usuário
+e o cliente; campos enviados em headers, argumentos ou metadata do usuário
+não escolhem essa autoridade. A distinção entre identidade OAuth e acesso aos
+dados segue o [contrato OAuth do Supabase](https://supabase.com/docs/guides/auth/oauth-server/token-security).
+
+Um catálogo vazio pode significar ausência de grants para esse cliente. Já
+falha de autenticação, conta inelegível, banco indisponível ou resposta inválida
+precisam aparecer como erro, sem fingir que o catálogo disponível está vazio.
+`online` é a presença informada pela plataforma; `last_seen_at` é a última
+atividade informada. Nenhum deles concede execução. Um dispositivo offline
+pode continuar listado, mas operações locais dependem do Runtime conectado.
+
+**Estado comprovado no source em 2026-10-09:**
+
+- A projeção MCP preserva nome, presença e descrições dos grants canônicos,
+  excluindo campos privados e identificadores internos de grupos.
+- `product_mcp_reads.ts` prepara handlers de leitura que verificam OAuth
+  com o boundary existente e chamam o adapter PostgreSQL existente. Catálogos
+  são relidos por requisição e recebem `Cache-Control: no-store`; erros não
+  expõem SQL, credenciais nem detalhes internos.
+- O teste `product_mcp_discovery.test.mts` percorre requisição MCP → verificação
+  de token assinado → reader RPC controlado → projeção pública. Também testa
+  negação antes do reader, catálogo alterado/vazio, conta inelegível, UUIDs
+  inválidos/duplicados e ausência da configuração PostgreSQL. Não é E2E real.
+- **As rotas em `index.ts` ainda usam D1.** Os novos handlers não estão
+  ativados. A migração coordenada de descoberta, grants, ações e status está
+  pendente no item #42 e no `d1-cutover-authority-map.json`.
+- A publicação permanece bloqueada por `production-foundation.json`.
+  CI verde ou esses testes de source não removem o gate de produção.
+
+Para aceitar a funcionalidade em produção, demonstrar OAuth/consentimento no
+emissor canônico, isolamento entre duas contas e dois clientes OAuth, ausência
+e revogação de grants, presença online/offline e uma ação autorizada pelo
+Runtime. A conta autenticada precisa ser elegível no momento da consulta.
+Não redirecionar apenas a descoberta ao PostgreSQL mantendo execução em D1.
+
+## Acompanhamento canônico de tarefas — source preparado
+
+O mesmo factory `createCanonicalProductMcpReadHandlers` prepara a leitura de
+`ordax_get_product_action_v1`. A identidade é verificada em cada requisição;
+o RPC existente verifica elegibilidade da conta e seleciona somente o request
+do usuário e do cliente OAuth exato. Um resultado ausente retorna 404, uma
+conta inelegível retorna 403 e falhas de configuração/transporte retornam 503.
+Registros malformados, IDs divergentes e estados desconhecidos retornam 502,
+sem simular conclusão ou publicar SQL/credenciais.
+
+Os estados publicados são `queued`, `leased`, `running`, `succeeded`, `failed`
+e `cancelled`. A projeção MCP mantém o request de continuação e distingue
+pendência de estado terminal. O `project_id` canônico é preservado; `project`
+fica nulo porque não existe conversão oficial para o slug legado nesse RPC.
+O resultado pertence ao contrato Product do Runtime; campos extras de banco,
+payload de entrada e identidades internas não são incluídos na resposta HTTP.
+Timestamps válidos são normalizados e as respostas recebem `no-store`, também
+na saída JSON MCP. A consulta não concede execução nem cria audit/queue
+paralelos; usa somente o adapter de leitura existente.
+
+O histórico de uma ação aceita é consultado diretamente por sua identidade,
+sem pedir catálogo de dispositivos ou disparar outra ação. Desktop offline
+ou catálogo indisponível não apagam essa identidade. Isso não equivale a
+executar novas operações offline. A autoridade do RPC determina o acesso
+ao histórico; o handler não adiciona grants nem amplia seu escopo.
+
+`product_mcp_action_status.test.mts` exercita token assinado → handler/MCP →
+reader controlado → resultado público, incluindo todas as transições,
+negações, identidade enviada pelo caller ignorada, ausência de replay,
+preservação do UUID de projeto e ausência de configuração PostgreSQL.
+Esses testes não comprovam execução, filtragem ou revogação em banco real.
+
+### Dependências para ativar as rotas juntas
+
+O Runtime remoto foi conferido no commit `113c49e72eb6f12ed12ca4597478765102c18ac7`.
+O [consumidor Product auditado](https://github.com/ordaxsystems/ordax-runtime/blob/113c49e72eb6f12ed12ca4597478765102c18ac7/ordax_dev_agent/product_remote.py)
+ainda exige o envelope legado `action`, `arguments`, `context`, `grant` e
+reconhece `ordax.product.invoke`/`ordax.product.read.invoke`.
+O [transporte auditado](https://github.com/ordaxsystems/ordax-runtime/blob/113c49e72eb6f12ed12ca4597478765102c18ac7/ordax_dev_agent/cloudflare_control_plane.py)
+usa o WebSocket `/v3/device/ws` e o audit `/v3/product/audit` existentes.
+Isso não demonstra consumo da fila Product privada PostgreSQL.
+
+Antes do cutover, Platform e Runtime precisam provar o contrato de enqueue →
+claim/lease → execução com política local → report/audit → status. Também
+precisam publicar o vínculo entre UUID do projeto canônico e projeto local,
+preservar requests já aceitos, prevenir execução duplicada e validar
+revogação/reconexão. Usar slugs arbitrários como UUIDs, fabricar grants ou
+enviar jobs para o consumidor legado sem esse contrato não resolve a migração.
+Os handlers preparados não estão conectados às rotas de `index.ts`.
+
+### Correção do facade MCP atual
+
+O facade compartilhado também valida o conteúdo das respostas dos handlers
+atuais: HTTP 200 sozinho não autentica a sessão, não comprova catálogo, ACK
+de ação nem status. Catálogo malformado recebe erro; somente `ok:true` com
+array de targets pode representar lista vazia. Estados desconhecidos, action
+ausente e IDs divergentes não mantêm uma tarefa como se estivesse trabalhando
+nem anunciam conclusão. `isError` reflete essas falhas na saída MCP.
+
+Consulta inválida/falha depois do ACK preserva o request aceito para recuperação
+por `ordax_action_status`. Nenhuma falha repete o dispatch; ausência de ACK
+válido é estado incerto, não prova de que a ação nunca foi aceita. Exceções e
+campos arbitrários do backend não aparecem como detalhes ao provider. A
+negação de grant conserva o código público e o direcionamento para o perfil
+de autorização do owner, sem criar ou ampliar permissões.
+
+A leitura de JSON reutiliza `readBoundedJsonObject` com limite de 2 MiB e UTF-8
+válido; resposta excessiva ou inválida é rejeitada e o reader é liberado.
+`product_mcp_failure_responses.test.mts` testa o facade efetivo, incluindo
+sessão inválida, catálogo vazio legítimo, erro HTTP, exceção, estado desconhecido,
+request diferente, ACK malformado e ausência de segundo dispatch. A mesma
+função de validação dos seis estados serve ao handler canônico e à projeção.
+Essas correções de source não removem o gate de publicação.
+
 ## Configuração no Windows
 
 A instalação/conexão deve deixar claro que existem duas decisões diferentes:

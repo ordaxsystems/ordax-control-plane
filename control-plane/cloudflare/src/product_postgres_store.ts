@@ -5,7 +5,7 @@ import {
   isCanonicalUuid,
   type RemoteClientKind,
   type RemoteGrantGroupInput,
-} from "./product_remote_grant_contract";
+} from "./product_remote_grant_contract.ts";
 
 type JsonObject = Record<string, unknown>;
 
@@ -45,12 +45,14 @@ export type ProductActionClaimResult = {
 };
 
 export class ProductPostgresError extends Error {
-  constructor(
-    readonly code: string,
-    readonly status: number,
-  ) {
+  readonly code: string;
+  readonly status: number;
+
+  constructor(code: string, status: number) {
     super(code);
     this.name = "ProductPostgresError";
+    this.code = code;
+    this.status = status;
   }
 }
 

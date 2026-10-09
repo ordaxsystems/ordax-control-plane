@@ -55,6 +55,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install pinned PostgreSQL adapter dependency for contract tests
+        run: npm install --ignore-scripts --no-audit --no-fund --package-lock=false --prefix control-plane/cloudflare
       - name: Run Control Plane contract tests
         run: |
           node --test control-plane/tests/*.test.mts

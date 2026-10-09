@@ -1,0 +1,176 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { handleOrdaxMcp, type OrdaxMcpHandlers } from "../cloudflare/src/mcp_http.ts";
+
+const acceptedId = "accepted-request-1";
+function record(overrides: Record<string, unknown> = {}) {
+  return { ok: true, action: { request_id: acceptedId, action: "git.status", status: "running", ...overrides } };
+}
+
+async function call(name: string, overrides: Partial<OrdaxMcpHandlers> = {}, args: Record<string, unknown> = {}) {
+  const response = await handleOrdaxMcp(new Request("https://ordax.example/mcp", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: {
+      request_id: acceptedId, device_id: "device-1", project: "demo", wait_for_completion_ms: 0, ...args,
+    } } }),
+  }), {
+    session: async () => Response.json({ ok: true }),
+    targets: async () => Response.json({ ok: true, targets: [] }),
+    createAction: async () => Response.json({ ok: true, request_id: acceptedId }),
+    getAction: async () => Response.json(record()),
+    ...overrides,
+  });
+  assert.equal(response.headers.get("cache-control"), "no-store");
+  return { response, body: await response.json() };
+}
+
+test("invalid session probes block every tool before discovery or dispatch", async () => {
+  for (const payload of [null, {}, { ok: false }, { ok: "true" }, []]) {
+    for (const name of ["ordax_targets", "git_status", "ordax_session"]) {
+      const { response, body } = await call(name, {
+        session: async () => Response.json(payload),
+        targets: async () => { assert.fail("invalid session cannot discover targets"); },
+        createAction: async () => { assert.fail("invalid session cannot dispatch"); },
+      });
+      assert.equal(response.status, 503);
+      assert.deepEqual(body, { ok: false, error: "product_session_invalid_response" });
+    }
+  }
+});
+
+test("session transport failure reports unavailability without exception details", async () => {
+  const { response, body } = await call("ordax_targets", {
+    session: async () => { throw new Error("postgres://secret@private-host SQL private_table"); },
+  });
+  assert.equal(response.status, 503);
+  assert.deepEqual(body, { ok: false, error: "product_session_unavailable" });
+});
+
+test("a second session response cannot convert revoked or malformed identity to authenticated", async () => {
+  for (const payload of [{ ok: false }, {}, []]) {
+    let probes = 0;
+    const { body } = await call("ordax_session", { session: async () => Response.json(++probes === 1 ? { ok: true } : payload) });
+    assert.equal(body.result.isError, true);
+    assert.equal(body.result.structuredContent.authenticated, false);
+  }
+});
+
+test("catalog errors and malformed JSON cannot look like a valid empty device list", async () => {
+  for (const makeResponse of [
+    () => Response.json({}), () => Response.json({ ok: false, targets: [] }),
+    () => Response.json({ ok: true, targets: {} }), () => Response.json([]),
+    () => new Response("<html>proxy error with internal details</html>"),
+  ]) {
+    const { body } = await call("ordax_targets", { targets: async () => makeResponse() });
+    assert.equal(body.result.isError, true);
+    assert.deepEqual(body.result.structuredContent, { ok: false, error: "targets_invalid_response", targets: [] });
+  }
+  const validEmpty = await call("ordax_targets");
+  assert.equal(validEmpty.body.result.isError, false);
+  assert.deepEqual(validEmpty.body.result.structuredContent, { ok: true, targets: [] });
+});
+
+test("unknown status, missing action and mismatched request stop observation without success or another dispatch", async () => {
+  for (const payload of [
+    {}, { ok: true }, { ok: true, action: {} }, record({ status: "unknown" }), record({ status: "" }),
+    record({ request_id: "another-request" }), record({ action: undefined }),
+    { ...record({ status: "unknown" }), pending: true, request_id: acceptedId },
+    { ok: true, pending: true, request_id: "another-request" },
+  ]) {
+    for (const name of ["ordax_action_status", "git_status"]) {
+      let dispatched = 0;
+      let reads = 0;
+      const { body } = await call(name, {
+        getAction: async () => { reads++; return Response.json(payload); },
+        createAction: async () => { dispatched++; return Response.json({ ok: true, request_id: acceptedId }); },
+      });
+      assert.equal(body.result.isError, true);
+      assert.deepEqual(body.result.structuredContent, {
+        ok: false, pending: false, request_id: acceptedId, error: "action_status_invalid_response",
+      });
+      assert.equal(reads, 1);
+      assert.equal(dispatched, name === "git_status" ? 1 : 0);
+    }
+  }
+});
+
+test("accepted action retains continuation ID across HTTP and thrown status failures without leaking upstream data", async () => {
+  for (const statusFailure of [
+    async () => Response.json({ error: "private SQL details", connection: "secret" }, { status: 503 }),
+    async () => { throw new Error("postgres://secret@private-host"); },
+  ]) {
+    for (const name of ["git_status", "ordax_action_status"]) {
+      let dispatched = 0;
+      let reads = 0;
+      const { body } = await call(name, {
+        getAction: async () => { reads++; return statusFailure(); },
+        createAction: async () => { dispatched++; return Response.json({ ok: true, request_id: acceptedId }); },
+      });
+      assert.equal(body.result.isError, true);
+      assert.equal(body.result.structuredContent.request_id, acceptedId);
+      assert.equal(body.result.structuredContent.pending, false);
+      assert.equal(body.result.structuredContent.error, "action_status_unavailable");
+      assert.equal(reads, 1); assert.equal(dispatched, name === "git_status" ? 1 : 0);
+      for (const secret of ["secret", "private", "SQL", "postgres://"]) assert.equal(JSON.stringify(body).includes(secret), false);
+    }
+  }
+});
+
+test("failed envelope takes precedence over pending or a superficially successful action", async () => {
+  const payload = { ...record({ status: "succeeded" }), ok: false, pending: true, request_id: acceptedId, error: "product_owner_auth_ineligible" };
+  const { body } = await call("ordax_action_status", { getAction: async () => Response.json(payload) });
+  assert.equal(body.result.isError, true);
+  assert.deepEqual(body.result.structuredContent, {
+    ok: false, pending: false, request_id: acceptedId, error: "product_owner_auth_ineligible",
+  });
+});
+
+test("malformed dispatch acknowledgement cannot start polling or export private response fields", async () => {
+  for (const payload of [
+    {}, { ok: false, request_id: acceptedId }, { ok: true, request_id: "../../escape" },
+    { ok: true, request_id: "x".repeat(129) }, { ok: true, private_token: "secret" },
+  ]) {
+    let dispatched = 0;
+    const { body } = await call("git_status", {
+      createAction: async () => { dispatched++; return Response.json(payload); },
+      getAction: async () => { assert.fail("invalid ACK cannot start polling"); },
+    });
+    assert.equal(dispatched, 1);
+    assert.equal(body.result.isError, true);
+    assert.deepEqual(body.result.structuredContent, { ok: false, error: "product_request_id_missing" });
+  }
+});
+
+test("grant denial still points to owner authorization without exporting arbitrary backend columns", async () => {
+  const { body } = await call("computer_windows", { createAction: async () => Response.json({
+    ok: false, error: "product_grant_not_resolved", private_token: "secret", raw_path: "C:/private",
+  }, { status: 403 }) });
+  assert.equal(body.result.isError, true);
+  assert.equal(body.result.structuredContent.error, "product_grant_not_resolved");
+  assert.equal(body.result.structuredContent.authorization_required, true);
+  assert.equal(typeof body.result.structuredContent.required_owner_profile, "string");
+  for (const secret of ["secret", "C:/private", "private_token"]) assert.equal(JSON.stringify(body).includes(secret), false);
+});
+
+test("tool exceptions and invalid request paths are contained without dispatch or exception details", async () => {
+  const { body } = await call("ordax_targets", { targets: async () => { throw new Error("SQL private_table secret"); } });
+  assert.equal(body.result.isError, true);
+  assert.deepEqual(body.result.structuredContent, { ok: false, error: "ordax_mcp_internal_error" });
+  const invalid = await call("ordax_action_status", {
+    getAction: async () => { assert.fail("invalid request ID cannot read another route"); },
+  }, { request_id: "../../private" });
+  assert.deepEqual(invalid.body.result.structuredContent, { ok: false, error: "product_request_id_invalid" });
+});
+
+test("oversized and invalid UTF-8 responses are rejected and their readers cancelled", async () => {
+  for (const bytes of [new Uint8Array(2 * 1024 * 1024 + 1), new Uint8Array([0xff, 0xfe])]) {
+    let cancelled = 0;
+    const { body } = await call("ordax_targets", { targets: async () => new Response(new ReadableStream({
+      start(controller) { controller.enqueue(bytes); },
+      cancel() { cancelled++; },
+    })) });
+    assert.equal(body.result.isError, true);
+    assert.equal(body.result.structuredContent.error, "targets_invalid_response");
+    assert.equal(cancelled, 1);
+  }
+});
