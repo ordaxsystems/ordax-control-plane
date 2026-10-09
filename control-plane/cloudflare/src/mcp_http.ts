@@ -56,7 +56,7 @@ const MCP_TOOL_SURFACE_REVISION = "2026-10-07.1";
 const TOOLS: ToolSpec[] = [
   { name: "ordax_session", description: "Inspect whether the current ORDAX Product connection is authenticated." },
   { name: "ordax_profile", description: "Return the stable opaque profile id represented by the authenticated ORDAX credentials." },
-  { name: "ordax_targets", description: "List ORDAX devices, Spaces and grants visible to the authenticated user." },
+  { name: "ordax_targets", description: "List authorized ORDAX devices, reported presence, Spaces and grants. Offline devices require their Runtime to reconnect for local work; unknown presence is not proof of connectivity. This does not discover cloud executors or synchronize repository files." },
   { name: "ordax_action_status", description: "Read the status/result of a previously queued ORDAX action.", properties: { request_id: STRING }, required: ["request_id"] },
   { name: "app_intelligence_catalog", description: "Read the compact version-bound App Intelligence catalog from the connected ORDAX device. Use this only to discover which app semantics are available; it grants no execution authority.", action: "intelligence.app_catalog", properties: { device_id: DEVICE, space_id: SPACE, wait_for_completion_ms: WAIT }, required: ["device_id"] },
   { name: "app_intelligence_detail", description: "Read declarative instructions, intents, parameters and examples for one exact app_id from the connected ORDAX device. This never grants permission to execute the app.", action: "intelligence.app_detail", properties: { device_id: DEVICE, space_id: SPACE, app_id: STRING, wait_for_completion_ms: WAIT }, required: ["device_id", "app_id"] },
@@ -261,7 +261,7 @@ const OPEN_WORLD_TOOLS = new Set([
 const TOOL_TITLES: Record<string, string> = {
   ordax_session: "Check ORDAX account session",
   ordax_profile: "Identify connected ORDAX account",
-  ordax_targets: "List connected ORDAX devices",
+  ordax_targets: "List authorized ORDAX devices",
   ordax_action_status: "Check ORDAX action status",
   app_intelligence_catalog: "List App Intelligence catalog",
   app_intelligence_detail: "Read App Intelligence detail",
@@ -395,9 +395,16 @@ async function bodyJson(response: Response): Promise<JsonObject> {
 
 function sanitizeTargets(payload: JsonObject): JsonObject {
   const rawTargets = Array.isArray(payload.targets) ? payload.targets : [];
-  const targets = rawTargets.flatMap((raw) => {
+  const boundedText = (value: unknown, limit = 128): string | null =>
+    typeof value === "string" && value.length <= limit && !/[\x00-\x1f]/.test(value) ? value : null;
+  const timestamp = (value: unknown): string | null => {
+    const text = boundedText(value, 40);
+    return text && Number.isFinite(Date.parse(text)) ? new Date(text).toISOString() : null;
+  };
+  const targets = rawTargets.slice(0, 100).flatMap((raw) => {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
     const target = raw as JsonObject;
+    if (typeof target.device_id !== "string" || !/^[a-zA-Z0-9:_-]{1,128}$/.test(target.device_id)) return [];
     const rawGrants = Array.isArray(target.grants) ? target.grants : [];
     const grants = rawGrants.flatMap((rawGrant) => {
       if (!rawGrant || typeof rawGrant !== "object" || Array.isArray(rawGrant)) return [];
@@ -408,11 +415,40 @@ function sanitizeTargets(payload: JsonObject): JsonObject {
         projects: Array.isArray(grant.projects) ? grant.projects.filter((item) => typeof item === "string") : [],
       }];
     });
+    // Canonical PostgreSQL targets use device_name/grant_groups; legacy D1
+    // uses name/grants. Both are descriptive projections of authorized rows.
+    const rawGroups = Array.isArray(target.grant_groups) ? target.grant_groups : [];
+    const grantGroups = rawGroups.slice(0, 128).flatMap((rawGroup) => {
+      if (!rawGroup || typeof rawGroup !== "object" || Array.isArray(rawGroup)) return [];
+      const group = rawGroup as JsonObject;
+      const rawCapabilities = Array.isArray(group.capabilities) ? group.capabilities : [];
+      const capabilities = rawCapabilities.slice(0, 128).flatMap((rawCapability) => {
+        if (!rawCapability || typeof rawCapability !== "object" || Array.isArray(rawCapability)) return [];
+        const item = rawCapability as JsonObject;
+        const capability = boundedText(item.capability);
+        return capability && ["read", "write"].includes(String(item.access_mode))
+          ? [{ capability, access_mode: item.access_mode }] : [];
+      });
+      return [{
+        profile_key: boundedText(group.profile_key),
+        space_id: boundedText(group.space_id),
+        project_id: boundedText(group.project_id),
+        valid_until: timestamp(group.valid_until),
+        capabilities,
+      }];
+    });
+    const name = boundedText(target.device_name) ?? boundedText(target.name) ?? "ORDAX device";
     return [{
       device_id: typeof target.device_id === "string" ? target.device_id : "",
-      name: typeof target.name === "string" ? target.name : "ORDAX device",
+      name,
+      device_name: name,
+      online: typeof target.online === "boolean" ? target.online : null,
+      last_seen_at: timestamp(target.last_seen_at),
+      device_kind: boundedText(target.device_kind),
+      channel: boundedText(target.channel),
       link_id: typeof target.link_id === "string" ? target.link_id : null,
       grants,
+      grant_groups: grantGroups,
     }];
   });
   return { ok: payload.ok !== false, targets };
