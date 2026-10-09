@@ -145,6 +145,36 @@ class CloudflareDirectDeployGateTests(unittest.TestCase):
         with self.assertRaisesRegex(gate.DeployGateError, "Hyperdrive binding"):
             self.validate()
 
+    def test_canonical_supabase_identity_is_a_deploy_hard_gate(self):
+        auth = self.wrangler["vars"]
+        expected = {
+            "PRODUCT_AUTH_ISSUER": "https://jhfphsjptrpmtnzkpwud.supabase.co/auth/v1",
+            "PRODUCT_AUTH_JWKS_URL": "https://jhfphsjptrpmtnzkpwud.supabase.co/auth/v1/.well-known/jwks.json",
+            "PRODUCT_AUTH_AUDIENCE": "authenticated",
+            "SUPABASE_PUBLISHABLE_KEY": auth["SUPABASE_PUBLISHABLE_KEY"],
+        }
+        for name, invalid, message in (
+            ("PRODUCT_AUTH_ISSUER", "https://eobcxuyvhkvdmkbaihwh.supabase.co/auth/v1", "Product OAuth issuer"),
+            ("PRODUCT_AUTH_JWKS_URL", "https://eobcxuyvhkvdmkbaihwh.supabase.co/auth/v1/.well-known/jwks.json", "Product OAuth JWKS"),
+            ("PRODUCT_AUTH_AUDIENCE", "legacy-audience", "Product OAuth audience"),
+            ("SUPABASE_PUBLISHABLE_KEY", "legacy-public-key", "public browser key"),
+        ):
+            with self.subTest(field=name):
+                auth[name] = invalid
+                with self.assertRaisesRegex(gate.DeployGateError, message):
+                    self.validate()
+                auth[name] = expected[name]
+        self.assertFalse(self.validate())
+
+    def test_auth_gate_rejects_mismatched_project_ref_and_missing_key(self):
+        self.foundation["postgres"]["project_ref"] = "eobcxuyvhkvdmkbaihwh"
+        with self.assertRaisesRegex(gate.DeployGateError, "OAuth issuer"):
+            self.validate()
+        self.foundation["postgres"]["project_ref"] = "jhfphsjptrpmtnzkpwud"
+        self.wrangler["vars"].pop("SUPABASE_PUBLISHABLE_KEY")
+        with self.assertRaisesRegex(gate.DeployGateError, "public browser key"):
+            self.validate()
+
     def test_do_and_r2_bindings_are_enforced(self):
         self.wrangler["r2_buckets"][0]["bucket_name"] = "incorrect"
         with self.assertRaisesRegex(gate.DeployGateError, "R2 bucket"):

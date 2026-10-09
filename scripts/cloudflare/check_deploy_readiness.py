@@ -100,6 +100,26 @@ def validate(data: dict, config: dict, source: str, account_id: str | None = Non
         raise DeployGateError("PostgreSQL transport/binding must use Hyperdrive POSTGRES")
     if postgres.get("query_cache") != "disabled":
         raise DeployGateError("Hyperdrive query cache must be disabled")
+    # Fail closed even while the deployment is blocked. A future release must
+    # never accidentally combine the canonical database with a legacy identity
+    # provider or a second Supabase OAuth consent project.
+    ref = postgres.get("project_ref")
+    if not isinstance(ref, str) or not re.fullmatch(r"[a-z0-9]{20}", ref):
+        raise DeployGateError("canonical Supabase project ref is invalid")
+    issuer = f"https://{ref}.supabase.co/auth/v1"
+    public_auth = config.get("vars") or {}
+    if public_auth.get("PRODUCT_AUTH_ISSUER") != issuer:
+        raise DeployGateError("Product OAuth issuer differs from canonical PostgreSQL project")
+    if public_auth.get("PRODUCT_AUTH_JWKS_URL") != issuer + "/.well-known/jwks.json":
+        raise DeployGateError("Product OAuth JWKS differs from canonical Supabase issuer")
+    if public_auth.get("PRODUCT_AUTH_AUDIENCE") != "authenticated":
+        raise DeployGateError("Product OAuth audience differs from canonical Supabase Auth")
+    publishable = public_auth.get("SUPABASE_PUBLISHABLE_KEY")
+    if not isinstance(publishable, str) or not re.fullmatch(
+        r"sb_publishable_[A-Za-z0-9_-]{16,}", publishable
+    ):
+        raise DeployGateError("canonical Supabase public browser key is missing or invalid")
+
     evidence = (data.get("live_evidence") or {}).get("hyperdrive") or {}
     hyperdrive = config.get("hyperdrive") or []
     if (not isinstance(hyperdrive, list) or len(hyperdrive) != 1
