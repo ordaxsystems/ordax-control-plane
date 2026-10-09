@@ -1,5 +1,5 @@
 import { authenticateProductMcpClientRequest, type ProductAuthEnv } from "./product_auth.ts";
-import { sanitizeTargets, type OrdaxMcpHandlers } from "./mcp_http.ts";
+import { sanitizeTargets, isProductActionStatus, type OrdaxMcpHandlers } from "./mcp_http.ts";
 import {
   listCanonicalProductTargets,
   getProductAction,
@@ -14,10 +14,6 @@ type ReadDependencies = {
   listTargets?: typeof listCanonicalProductTargets;
   getAction?: typeof getProductAction;
 };
-
-// Published status values of ordax_get_product_action_v1; unknown values fail
-// closed instead of looking like a running or successfully completed action.
-const ACTION_STATUSES = new Set(["queued", "leased", "running", "succeeded", "failed", "cancelled"]);
 
 function json(value: unknown, status = 200): Response {
   return Response.json(value, { status, headers: { "cache-control": "no-store" } });
@@ -54,7 +50,7 @@ function validAction(value: unknown, requestId: string): value is Record<string,
     && typeof action.capability === "string"
     && action.capability.length >= 2 && action.capability.length <= 120
     && /^[a-z][a-z0-9._-]+$/.test(action.capability)
-    && typeof action.status === "string" && ACTION_STATUSES.has(action.status)
+    && isProductActionStatus(action.status)
     && timestamp(action.created_at) !== null
     && [action.started_at, action.finished_at].every(item => item === null || timestamp(item) !== null)
     && (action.error_code === null || (typeof action.error_code === "string"

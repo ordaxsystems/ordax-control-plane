@@ -388,17 +388,24 @@ function rpcError(id: unknown, code: number, message: string, data?: unknown): R
 }
 
 async function bodyJson(response: Response): Promise<JsonObject> {
-  try {
-    const value = await response.json();
-    return value && typeof value === "object" && !Array.isArray(value) ? value as JsonObject : {};
-  } catch {
-    return {};
-  }
+  return await readBoundedJsonObject(response, 2 * 1024 * 1024) ?? {};
+}
+
+const ACTION_STATUSES = new Set(["queued", "leased", "running", "succeeded", "failed", "cancelled"]);
+export function isProductActionStatus(value: unknown): value is string {
+  return typeof value === "string" && ACTION_STATUSES.has(value);
+}
+
+function publicErrorCode(value: unknown, fallback: string): string {
+  return typeof value === "string" && /^[a-z][a-z0-9_]{1,119}$/.test(value) ? value : fallback;
 }
 
 // Shared public projection for HTTP discovery and MCP; never grant resolution.
 export function sanitizeTargets(payload: JsonObject): JsonObject {
-  const rawTargets = Array.isArray(payload.targets) ? payload.targets : [];
+  if (payload.ok !== true || !Array.isArray(payload.targets)) {
+    return { ok: false, error: "targets_invalid_response", targets: [] };
+  }
+  const rawTargets = payload.targets;
   const boundedText = (value: unknown, limit = 128): string | null =>
     typeof value === "string" && value.length <= limit && !/[\x00-\x1f]/.test(value) ? value : null;
   const timestamp = (value: unknown): string | null => {
@@ -459,7 +466,16 @@ export function sanitizeTargets(payload: JsonObject): JsonObject {
 }
 
 function sanitizeActionPayload(payload: JsonObject, requestId?: string): JsonObject {
-  if (payload.pending === true) {
+  const invalid = { ok: false, pending: false, error: "action_status_invalid_response",
+    ...(requestId ? { request_id: requestId } : {}) };
+  if (payload.ok !== true) return { ...invalid,
+    error: publicErrorCode(payload.error, "action_status_invalid_response") };
+  const matchesId = (value: unknown): value is string => typeof value === "string"
+    && /^[A-Za-z0-9:_-]{1,128}$/.test(value)
+    && (!requestId || value === requestId || (isCanonicalUuid(value)
+      && isCanonicalUuid(requestId) && value.toLowerCase() === requestId.toLowerCase()));
+  if (payload.pending === true && !Object.hasOwn(payload, "action")) {
+    if (!matchesId(payload.request_id)) return invalid;
     return {
       ok: payload.ok !== false,
       pending: true,
@@ -470,7 +486,10 @@ function sanitizeActionPayload(payload: JsonObject, requestId?: string): JsonObj
   const rawAction = payload.action;
   if (rawAction && typeof rawAction === "object" && !Array.isArray(rawAction)) {
     const action = rawAction as JsonObject;
-    const status = typeof action.status === "string" ? action.status : "";
+    if (!matchesId(action.request_id) || !isProductActionStatus(action.status)
+      || typeof action.action !== "string" || action.action.length > 120
+      || !/^[a-z][a-z0-9._-]+$/.test(action.action)) return invalid;
+    const status = action.status;
     const pending = !["succeeded", "failed", "cancelled"].includes(status);
     return {
       ok: payload.ok !== false,
@@ -486,14 +505,7 @@ function sanitizeActionPayload(payload: JsonObject, requestId?: string): JsonObj
       },
     };
   }
-  if (payload.ok === false) {
-    return {
-      ok: false,
-      pending: false,
-      error: typeof payload.error === "string" ? payload.error : "ordax_action_failed",
-    };
-  }
-  return { ok: payload.ok !== false, pending: false };
+  return invalid;
 }
 
 function textToolResult(payload: unknown, isError = false): JsonObject {
@@ -603,14 +615,14 @@ async function waitForAction(source: Request, requestId: string, timeoutMs: numb
   const deadline = Date.now() + timeoutMs;
   while (true) {
     const statusRequest = cloneWithAuth(source, new URL(`/v3/product/actions/${requestId}`, source.url).toString(), "GET");
-    const statusResponse = await handlers.getAction(statusRequest, requestId);
+    let statusResponse: Response;
+    try { statusResponse = await handlers.getAction(statusRequest, requestId); }
+    catch { return { ok: false, pending: false, request_id: requestId, error: "action_status_unavailable" }; }
     const payload = await bodyJson(statusResponse);
-    if (!statusResponse.ok) return { ok: false, pending: false, request_id: requestId, upstream_status: statusResponse.status, response: payload };
-    const action = payload.action;
-    if (action && typeof action === "object" && !Array.isArray(action)) {
-      const state = String((action as JsonObject).status ?? "");
-      if (["succeeded", "failed", "cancelled"].includes(state)) return sanitizeActionPayload({ ...payload, pending: false }, requestId);
-    }
+    if (!statusResponse.ok) return { ok: false, pending: false, request_id: requestId,
+      upstream_status: statusResponse.status, error: "action_status_unavailable" };
+    const projected = sanitizeActionPayload(payload, requestId);
+    if (projected.ok !== true || projected.pending === false) return projected;
     if (Date.now() >= deadline) return sanitizeActionPayload({ ok: true, pending: true, request_id: requestId, message: "Action is still running; call ordax_action_status with this request_id." }, requestId);
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
@@ -619,8 +631,10 @@ async function waitForAction(source: Request, requestId: string, timeoutMs: numb
 async function callTool(source: Request, name: string, args: JsonObject, handlers: OrdaxMcpHandlers): Promise<JsonObject> {
   if (name === "ordax_session") {
     const response = await handlers.session(cloneWithAuth(source, new URL("/v3/product/session", source.url).toString(), "GET"));
+    const payload = await bodyJson(response);
+    const authenticated = response.ok && payload.ok === true;
     return textToolResult(
-      response.ok
+      authenticated
         ? {
             ok: true,
             authenticated: true,
@@ -634,7 +648,7 @@ async function callTool(source: Request, name: string, args: JsonObject, handler
             mcp_tool_surface_revision: MCP_TOOL_SURFACE_REVISION,
             mcp_tool_count: TOOLS.length,
           },
-      !response.ok,
+      !authenticated,
     );
   }
   if (name === "ordax_profile") {
@@ -644,7 +658,7 @@ async function callTool(source: Request, name: string, args: JsonObject, handler
     const subjectId = session && typeof session === "object" && !Array.isArray(session)
       ? (session as JsonObject).subject_id
       : null;
-    if (!response.ok || typeof subjectId !== "string" || !subjectId.trim()) {
+    if (!response.ok || payload.ok !== true || typeof subjectId !== "string" || !subjectId.trim()) {
       return textToolResult({ ok: false, error: "profile_unavailable" }, true);
     }
     return textToolResult({ id: subjectId });
@@ -652,14 +666,20 @@ async function callTool(source: Request, name: string, args: JsonObject, handler
   if (name === "ordax_targets") {
     const response = await handlers.targets(cloneWithAuth(source, new URL("/v3/product/targets", source.url).toString(), "GET"));
     const payload = await bodyJson(response);
-    return textToolResult(response.ok ? sanitizeTargets(payload) : { ok: false, error: "targets_unavailable" }, !response.ok);
+    const projected = response.ok ? sanitizeTargets(payload) : { ok: false, error: "targets_unavailable" };
+    return textToolResult(projected, projected.ok !== true);
   }
   if (name === "ordax_action_status") {
     const requestId = typeof args.request_id === "string" ? args.request_id : "";
     if (!requestId) return textToolResult({ ok: false, error: "request_id_required" }, true);
-    const response = await handlers.getAction(cloneWithAuth(source, new URL(`/v3/product/actions/${requestId}`, source.url).toString(), "GET"), requestId);
+    if (!/^[A-Za-z0-9:_-]{1,128}$/.test(requestId)) return textToolResult({ ok: false, error: "product_request_id_invalid" }, true);
+    let response: Response;
+    try { response = await handlers.getAction(cloneWithAuth(source, new URL(`/v3/product/actions/${requestId}`, source.url).toString(), "GET"), requestId); }
+    catch { return textToolResult({ ok: false, pending: false, request_id: requestId, error: "action_status_unavailable" }, true); }
     const payload = await bodyJson(response);
-    return textToolResult(response.ok ? sanitizeActionPayload(payload, requestId) : { ok: false, error: "action_status_unavailable" }, !response.ok);
+    const projected = response.ok ? sanitizeActionPayload(payload, requestId)
+      : { ok: false, pending: false, request_id: requestId, error: "action_status_unavailable" };
+    return textToolResult(projected, projected.ok !== true);
   }
 
   const spec = specFor(name);
@@ -685,12 +705,14 @@ async function callTool(source: Request, name: string, args: JsonObject, handler
   if (!created.ok) {
     if (createdPayload.error === "product_grant_not_resolved") {
       const hint = authorizationHintForAction(spec.action);
-      return textToolResult(hint ? { ...createdPayload, ...hint } : createdPayload, true);
+      return textToolResult({ ok: false, error: "product_grant_not_resolved", ...hint }, true);
     }
-    return textToolResult(createdPayload, true);
+    return textToolResult({ ok: false, error: publicErrorCode(createdPayload.error, "product_action_unavailable") }, true);
   }
   const requestId = typeof createdPayload.request_id === "string" ? createdPayload.request_id : "";
-  if (!requestId) return textToolResult({ ok: false, error: "product_request_id_missing", response: createdPayload }, true);
+  if (createdPayload.ok !== true || !/^[A-Za-z0-9:_-]{1,128}$/.test(requestId)) {
+    return textToolResult({ ok: false, error: "product_request_id_missing" }, true);
+  }
   const finalPayload = await waitForAction(source, requestId, waitMs, handlers);
   const action = finalPayload.action;
   const failed = finalPayload.ok === false || Boolean(action && typeof action === "object" && !Array.isArray(action) && String((action as JsonObject).status ?? "") !== "succeeded" && !finalPayload.pending);
@@ -701,12 +723,16 @@ export async function handleOrdaxMcp(request: Request, handlers: OrdaxMcpHandler
   if (request.method === "GET") return new Response(null, { status: 405, headers: { allow: "POST" } });
   if (request.method !== "POST") return new Response(null, { status: 405, headers: { allow: "GET, POST" } });
 
-  const sessionProbe = await handlers.session(cloneWithAuth(request, new URL("/v3/product/session", request.url).toString(), "GET"));
+  let sessionProbe: Response;
+  try { sessionProbe = await handlers.session(cloneWithAuth(request, new URL("/v3/product/session", request.url).toString(), "GET")); }
+  catch { return responseJson({ ok: false, error: "product_session_unavailable" }, 503); }
   if (!sessionProbe.ok) {
     const headers = new Headers(sessionProbe.headers);
     headers.set("www-authenticate", `Bearer resource_metadata="${new URL("/.well-known/oauth-protected-resource", request.url).toString()}"`);
     return new Response(sessionProbe.body, { status: sessionProbe.status, headers });
   }
+  const sessionPayload = await bodyJson(sessionProbe);
+  if (sessionPayload.ok !== true) return responseJson({ ok: false, error: "product_session_invalid_response" }, 503);
 
   let message: JsonObject;
   try {
@@ -737,8 +763,8 @@ export async function handleOrdaxMcp(request: Request, handlers: OrdaxMcpHandler
     if (!specFor(name)) return rpcError(id, -32601, "Tool not found", { tool: name });
     try {
       return rpcResult(id, await callTool(request, name, args, handlers));
-    } catch (error) {
-      return rpcResult(id, textToolResult({ ok: false, error: "ordax_mcp_internal_error", detail: error instanceof Error ? error.message : String(error) }, true));
+    } catch {
+      return rpcResult(id, textToolResult({ ok: false, error: "ordax_mcp_internal_error" }, true));
     }
   }
   return rpcError(id, -32601, "Method not found");

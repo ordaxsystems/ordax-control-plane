@@ -14,6 +14,8 @@ Discovery source tests cover signed OAuth identity, spoofed caller fields, disti
 
 Status source tests cover the same OAuth boundary, exact request UUID, another owner/client, account ineligibility, all six canonical lifecycle states, malformed records and database failures. Accepted history reads do not enumerate devices, create or replay work. HTTP exposes only the published action fields and the Runtime-owned Product result; canonical `project_id` survives MCP projection without inventing a legacy project slug. MCP JSON and canonical read responses use `Cache-Control: no-store`. Runtime queue/binding migration remains a dependency, documented with pinned consumer evidence in the connection guide.
 
+The existing MCP facade also rejects malformed successful HTTP envelopes: session probes cannot authenticate from HTTP 200 alone; missing catalogs/status/ACKs and unknown lifecycle states become explicit tool errors. A failed status read keeps the accepted request ID without another dispatch. JSON responses are bounded at 2 MiB with UTF-8 validation using the existing stream reader; failed parsing cancels/releases the reader. Exceptions, failed acknowledgement bodies and arbitrary grant-denial columns are not forwarded to the provider. Tests exercise the public MCP handler, including malformed/oversized responses and exactly one dispatch on post-acceptance status failure. These source fixes still require the production gate before publication.
+
 Migrated from washingtonmsdj/mcp-blender at commit ce31808f950e04207f028c5925cca2da17d18553 on 2026-10-05.
 
 This repository owns remote protocol/OAuth/grant resolution/queueing/audit and thin provider connectors. It does not own ORDAX Studio portable source or the device Runtime.

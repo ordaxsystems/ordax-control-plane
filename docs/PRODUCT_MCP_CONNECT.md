@@ -179,6 +179,30 @@ revogação/reconexão. Usar slugs arbitrários como UUIDs, fabricar grants ou
 enviar jobs para o consumidor legado sem esse contrato não resolve a migração.
 Os handlers preparados não estão conectados às rotas de `index.ts`.
 
+### Correção do facade MCP atual
+
+O facade compartilhado também valida o conteúdo das respostas dos handlers
+atuais: HTTP 200 sozinho não autentica a sessão, não comprova catálogo, ACK
+de ação nem status. Catálogo malformado recebe erro; somente `ok:true` com
+array de targets pode representar lista vazia. Estados desconhecidos, action
+ausente e IDs divergentes não mantêm uma tarefa como se estivesse trabalhando
+nem anunciam conclusão. `isError` reflete essas falhas na saída MCP.
+
+Consulta inválida/falha depois do ACK preserva o request aceito para recuperação
+por `ordax_action_status`. Nenhuma falha repete o dispatch; ausência de ACK
+válido é estado incerto, não prova de que a ação nunca foi aceita. Exceções e
+campos arbitrários do backend não aparecem como detalhes ao provider. A
+negação de grant conserva o código público e o direcionamento para o perfil
+de autorização do owner, sem criar ou ampliar permissões.
+
+A leitura de JSON reutiliza `readBoundedJsonObject` com limite de 2 MiB e UTF-8
+válido; resposta excessiva ou inválida é rejeitada e o reader é liberado.
+`product_mcp_failure_responses.test.mts` testa o facade efetivo, incluindo
+sessão inválida, catálogo vazio legítimo, erro HTTP, exceção, estado desconhecido,
+request diferente, ACK malformado e ausência de segundo dispatch. A mesma
+função de validação dos seis estados serve ao handler canônico e à projeção.
+Essas correções de source não removem o gate de publicação.
+
 ## Configuração no Windows
 
 A instalação/conexão deve deixar claro que existem duas decisões diferentes:
