@@ -7,7 +7,7 @@ O ORDAX Runtime mantém o computador conectado ao Control Plane. O ChatGPT não 
 ```text
 ChatGPT normal
    |
-   | ORDAX for ChatGPT
+   | ORDAX Studio (conector ChatGPT)
    v
 MCP remoto do Control Plane (definido pelo manifest publicado)
    |
@@ -53,7 +53,11 @@ agente Android/iOS, deploy ou integração de arquivos cloud.
 
 A fonte do conector do ChatGPT fica em `plugins/ordax-chatgpt/`. O pacote contém somente os manifests/configuração e assets necessários para apontar o ChatGPT ao MCP remoto. O runtime real continua no dispositivo.
 
-O nome user-facing do conector é **ORDAX for ChatGPT**. **ORDAX Studio** permanece reservado ao aplicativo first-party do ORDAX; o conector não é o Studio e não contém um Runtime próprio.
+O nome visível do conector é **ORDAX Studio**, governado pelo mesmo manifest
+`plugins/ordax-chatgpt/plugin.json` usado no pacote. O ID estável `ordax-chatgpt`
+continua identificando o conector ChatGPT, com versão independente do app. O
+nome compartilhado não altera ownership nem embute Studio/Runtime no plugin.
+[IA do OS, contratos necessários e limites atuais](ORDAX_PROVIDER_CONNECTORS.md#relationship-to-ordax-os).
 
 Outros providers devem seguir o mesmo padrão com conectores independentes, por exemplo `ORDAX for Grok`, reutilizando o mesmo protocolo, Control Plane, grants e handlers tipados.
 
@@ -306,14 +310,14 @@ O dono pode revogar Full Access a qualquer momento e voltar para Bounded; a muda
 1. Instalar ORDAX Studio / ORDAX Runtime no Windows
 2. Abrir ORDAX Studio localmente
 3. Opcionalmente entrar na Conta ORDAX
-4. Vincular o dispositivo ao ORDAX for ChatGPT
+4. Vincular o dispositivo ao conector ORDAX Studio
 5. Escolher localmente:
       - Bounded
       - Full Access
 6. Se Full Access:
       mostrar aviso de controle amplo do computador
       exigir confirmação local do dono
-7. Usar o ORDAX for ChatGPT no cliente externo
+7. Usar o conector ORDAX Studio no cliente externo
 ```
 
 A Conta ORDAX continua opcional para uso local do Studio. Ela passa a ser necessária quando o usuário quer as capacidades remotas/account-scoped correspondentes, como vínculo de dispositivo, grants remotos e acesso pelo conector.

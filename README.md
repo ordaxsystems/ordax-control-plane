@@ -2,6 +2,18 @@
 
 Canonical remote platform repository for OrdaX: provider-neutral Control Plane, Product MCP, PostgreSQL/Supabase integration, Cloudflare edge foundation and provider connectors.
 
+## Studio connector and OS Intelligence boundary
+
+The ChatGPT connector displays **ORDAX Studio**; its stable `ordax-chatgpt`
+identity and independent version come from `plugins/ordax-chatgpt/plugin.json`.
+The portable app remains owned by Apps and device execution by Runtime/OS.
+The canonical integration guide now identifies the existing OS Intelligence
+chain, distinguishes app semantics from model/Memory access and records the
+public transport/context/egress gates still required. This source change does
+not activate OS IA or update an installed connector. See
+[provider boundaries](docs/ORDAX_PROVIDER_CONNECTORS.md#relationship-to-ordax-os)
+and [connection guide](docs/PRODUCT_MCP_CONNECT.md).
+
 ## Product MCP reads — source increment 2026-10-09
 
 Worker transport/source checks previously stranded in Runtime now run in

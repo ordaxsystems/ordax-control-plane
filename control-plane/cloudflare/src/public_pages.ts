@@ -49,7 +49,7 @@ export function publicProductPage(pathname: string): Response | null {
   if (pathname === "/") {
     return html("Home", `
 <h1>ORDAX</h1>
-<p>ORDAX connects authorized clients to typed capabilities on devices the user controls. Provider-specific connectors such as ORDAX for ChatGPT use the same grant-scoped Control Plane and device Runtime.</p>
+<p>ORDAX connects authorized clients to typed capabilities on devices the user controls. The ORDAX Studio ChatGPT connector uses the same grant-scoped Control Plane and device Runtime.</p>
 <div class="card">
 <strong>What it can do</strong>
 <ul>

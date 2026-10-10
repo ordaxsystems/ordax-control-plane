@@ -1,4 +1,4 @@
-name: ORDAX for ChatGPT Review Package
+name: ORDAX Studio ChatGPT Review Package
 
 on:
   workflow_dispatch:
@@ -48,7 +48,7 @@ jobs:
           python scripts/build_ordax_plugin.py --output-dir dist/plugins
           zip_path="$(find dist/plugins -maxdepth 1 -type f -name 'ordax-chatgpt-plugin-*.zip' -print)"
           count="$(printf '%s\n' "$zip_path" | sed '/^$/d' | wc -l)"
-          test "$count" -eq 1 || { echo "Expected exactly one ORDAX for ChatGPT connector ZIP, got $count"; exit 1; }
+          test "$count" -eq 1 || { echo "Expected exactly one ORDAX Studio ChatGPT connector ZIP, got $count"; exit 1; }
           test -f "${zip_path}.sha256"
           (
             cd dist/plugins
@@ -74,14 +74,8 @@ jobs:
               raise SystemExit("ChatGPT connector name mismatch")
           if plugin != validate_package():
               raise SystemExit("connector manifest differs from canonical source")
-          display_name = (
-              plugin.get("extensions", {})
-              .get("com.openai", {})
-              .get("interface", {})
-              .get("displayName")
-          )
-          if display_name != "ORDAX for ChatGPT":
-              raise SystemExit("ChatGPT connector display name mismatch")
+          # The complete equality above binds display name and version to the
+          # validated canonical manifest; do not maintain another branding lock.
           servers = mcp.get("mcpServers")
           ordax = servers.get("ordax") if isinstance(servers, dict) else None
           url = ordax.get("url") if isinstance(ordax, dict) else None
