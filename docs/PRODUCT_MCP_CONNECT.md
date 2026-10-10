@@ -23,6 +23,34 @@ ORDAX Runtime no Windows
 
 ## Conector
 
+### Onde ficam os arquivos e qual dispositivo executa
+
+O dispositivo onde o ChatGPT/Studio abre é o **cliente**; o dispositivo
+selecionado em `ordax_targets` é um possível **alvo**, com projeto, grants e
+Runtime próprios. Não trocar esse alvo silenciosamente. Cadastro/presença e
+`device_kind=mobile` são metadados, não acesso a arquivos, câmera, sensores ou
+capabilities desktop. O setup Product aceita identidade mobile, mas o agente
+Mobile Companion ainda está desativado no contrato OS.
+
+Ferramentas de projeto atuais encaminham ações ao Runtime do alvo autorizado.
+Na Web, arquivos do PC não aparecem automaticamente na nuvem; o PC precisa
+estar disponível para operações locais. Projeto já na nuvem requer conector
+ou serviço de arquivos autorizado; executar build/preview exige executor
+provisionado. Nenhum desses executores/fluxos cloud é criado por hospedar a UI
+ou o MCP na Cloudflare. User Cloud Storage do OS permanece em fundação com
+rollout desativado, sem integração desses arquivos no plugin.
+
+Um telefone pode ser cliente de uma futura composição Web/mobile e solicitar
+trabalho em outro alvo. Servir seus próprios arquivos/capacidades requer
+adapter mobile e permissões/grants explícitos; não é consequência de login.
+Usar somente arquivos já hospedados na nuvem não exige instalar um agente no
+PC do usuário, mas a integração cloud ainda precisa ser implementada.
+
+O `initialize.instructions` do MCP orienta essa distinção para o provider.
+Teste de catálogo misto verifica metadados desktop/mobile, nenhum dispatch e
+nenhum campo de acesso privado exportado; não é prova de aparelho real,
+agente Android/iOS, deploy ou integração de arquivos cloud.
+
 A fonte do conector do ChatGPT fica em `plugins/ordax-chatgpt/`. O pacote contém somente os manifests/configuração e assets necessários para apontar o ChatGPT ao MCP remoto. O runtime real continua no dispositivo.
 
 O nome user-facing do conector é **ORDAX for ChatGPT**. **ORDAX Studio** permanece reservado ao aplicativo first-party do ORDAX; o conector não é o Studio e não contém um Runtime próprio.
