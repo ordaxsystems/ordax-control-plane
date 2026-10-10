@@ -1,5 +1,12 @@
 # ORDAX provider connectors
 
+## Decisão de integração ecossistêmica — 2026-10-10
+
+OrdaX Intelligence é serviço de sistema de `ordax-os`, não propriedade do Studio ou deste conector. O plugin de ID estável `ordax-chatgpt` e OAuth/Product MCP seguem neste repositório e podem disponibilizar ações **do ecossistema** ao ChatGPT externo, independentemente de a UI Studio estar aberta, desde que cliente, conta OrdaX, target, Runtime, grants e políticas estejam habilitados. A marca atual `ORDAX Studio` é compatibilidade de fonte, não razão para restringir ações ao Studio. Eventual rebranding requer migração deliberada e não deve quebrar ID/OAuth/instalações.
+
+Separar **ChatGPT externo → MCP → OrdaX** de **painel OrdaX Web/OS/Studio → provedor de IA**. Instalar o plugin no ChatGPT não expõe uma API de inferência do chatgpt.com para a UI OrdaX. Provider ChatGPT Web experimental não deve usar cookies extraídos, browser/DOM não autorizado, fallback silencioso ou conferir autoridade de dispositivo ao LLM. Apps manifestam semântica; execução usa actions/grants/receipts canônicos. Revalidar owner OS [handoff na raiz](https://github.com/ordaxsystems/ordax-os/blob/main/INTELLIGENCE-HANDOFF.md) e [Intelligence](https://github.com/ordaxsystems/ordax-os/blob/main/docs/INTELLIGENCE.md). Esta seção registra arquitetura, não deploy, consentimento ou E2E.
+
+
 ## Purpose
 
 ORDAX Studio and ORDAX Runtime are provider-neutral.
